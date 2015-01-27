@@ -231,8 +231,22 @@ function stdinData (chunk)
 					break;
 				}
 				
-				IsHeader = (chunk[page_segments + 26 + 2] == 0x76 && chunk[page_segments + 26 + 3] == 0x6f && chunk[page_segments + 26 + 4] == 0x72 &&
-								chunk[page_segments + 26 + 5] == 0x62 && chunk[page_segments + 26 + 6] == 0x69 && chunk[page_segments + 26 + 7] == 0x73);
+				IsHeader = (chunk[26 + page_segments + 1] == 0x4f && chunk[26 + page_segments + 2] == 0x70 && chunk[26 + page_segments + 3] == 0x75 && // "Opus"
+								chunk[26 + page_segments + 4] == 0x73);
+								
+				if (!IsHeader)
+				{
+					if (chunk.length < page_segments + 27 + 7)
+					{
+						Self.GotHeader = true;
+						break;
+					}
+					
+					IsHeader = (chunk[26 + page_segments + 2] == 0x76 && chunk[26 + page_segments + 3] == 0x6f && chunk[26 + page_segments + 4] == 0x72 && // "vorbis"
+									chunk[26 + page_segments + 5] == 0x62 && chunk[26 + page_segments + 6] == 0x69 && chunk[26 + page_segments + 7] == 0x73);
+					
+					console.log("vorbis: " + IsHeader);
+				}
 				
 				if (!IsHeader)
 				{
