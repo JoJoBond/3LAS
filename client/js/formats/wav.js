@@ -33,9 +33,19 @@ function AudioFormatReader_WAV (ErrorCallback, DataReadyCallback)
 	// ==========
 	
 	// Number of bytes to decode together
-	this.BatchSize = 512;
+	if (isAndroid && isNativeChrome)
+		this.BatchSize = 8192;
+	else if (isAndroid && isFirefox)
+		this.BatchSize = 8192;
+	else
+		this.BatchSize = 512;
 
-	this.ExtraEdgeSamples = 0;
+	if (isAndroid && isNativeChrome)
+		this.ExtraEdgeBytes = 32;
+	else if (isAndroid && isFirefox)
+		this.ExtraEdgeBytes = 32;
+	else
+		this.ExtraEdgeBytes = 32;
 
 
 	// Internal variables:
@@ -46,6 +56,16 @@ function AudioFormatReader_WAV (ErrorCallback, DataReadyCallback)
 	
 	// Stores the RIFF header
 	this.RiffHeader = null;
+	
+	// Stores sample rate from RIFF header
+	this.WaveSampleRate = 0;
+	
+	// Stores bit depth from RIFF header
+	this.WaveBitsPerSample = 0;
+	this.WaveBytesPerSample = 0;
+	
+	// Stores number of channels from RIFF header
+	this.WaveChannels = 0;
 	
 	// Data buffer for "raw" samples
 	this.DataBuffer = new Uint8Array(0);
@@ -135,29 +155,16 @@ function AudioFormatReader_WAV (ErrorCallback, DataReadyCallback)
 				// TODO: All of the above...
 				
 				// Create a buffer long enough to hold everything
-				var samplesbuffer = new Uint8Array(Self.RiffHeader.length + tmpSamples.length + Self.ExtraEdgeSamples * 2 * 2);
+				var samplesbuffer = new Uint8Array(Self.RiffHeader.length + tmpSamples.length);
 				
 				var offset = 0;
 				
 				// Add header
 				samplesbuffer.set(Self.RiffHeader, offset);
 				offset += Self.RiffHeader.length;
-				
-				for (var i = 0; i < Self.ExtraEdgeSamples; i++)
-				{
-					samplesbuffer[offset++] = tmpSamples[0];
-					samplesbuffer[offset++] = tmpSamples[1];
-				}
 
 				// Add samples
 				samplesbuffer.set(tmpSamples, offset);
-				offset += tmpSamples.length;
-
-				for (var i = 0; i < Self.ExtraEdgeSamples; i++)
-				{
-					samplesbuffer[offset++] = tmpSamples[tmpSamples.length-2];
-					samplesbuffer[offset++] = tmpSamples[tmpSamples.length-1];
-				}
 
 				// Push pages to the decoder
 				Self.SoundContext.decodeAudioData(samplesbuffer.buffer, decodeSuccess, decodeError);
@@ -169,16 +176,16 @@ function AudioFormatReader_WAV (ErrorCallback, DataReadyCallback)
 	function decodeSuccess (buffer)
 	{	
 		// Calculate the length of the parts
-		var ratio = buffer.length / (Self.BatchSize + Self.ExtraEdgeSamples);
-		var offset = Math.ceil((Self.ExtraEdgeSamples/2.0) * ratio);
-		var length = Math.ceil(Self.BatchSize * ratio);
-		
+		var rateRatio = Self.SoundContext.sampleRate / Self.WaveSampleRate;
+		var length = Math.ceil(Self.BatchSize / Self.WaveBytesPerSample  * rateRatio);
+		var offset = Math.floor((buffer.length - length) / 2);
+
 		// Create a buffer that can hold a single part
 		var audioBuffer = Self.SoundContext.createBuffer(buffer.numberOfChannels, length, buffer.sampleRate);
 		
 		// Fill buffer with the last part of the decoded frame
 		for (var i = 0; i < buffer.numberOfChannels; i++)
-		audioBuffer.getChannelData(i).set(buffer.getChannelData(i).subarray(offset, offset+length));
+			audioBuffer.getChannelData(i).set(buffer.getChannelData(i).subarray(offset, offset+length));
 		
 		// Push samples into arrray
 		Self.FloatSamples.push(audioBuffer);
@@ -198,64 +205,101 @@ function AudioFormatReader_WAV (ErrorCallback, DataReadyCallback)
 	{	
 		var curpos = 0;
 		// Make sure a whole header can fit
-		if ((curpos + 4) < Self.DataBuffer.length)
-		{
-			// Check ChunkID
-			if (Self.DataBuffer[curpos] == 0x52 && Self.DataBuffer[curpos + 1] == 0x49 && Self.DataBuffer[curpos + 2] == 0x46 && Self.DataBuffer[curpos + 3] == 0x46)
-			{
-				curpos = 8;
+		if ( !((curpos + 4) < Self.DataBuffer.length) )
+			return;
+		
+		// Check chunkID, should be "RIFF"
+		if ( !(Self.DataBuffer[curpos] == 0x52 && Self.DataBuffer[curpos + 1] == 0x49 && Self.DataBuffer[curpos + 2] == 0x46 && Self.DataBuffer[curpos + 3] == 0x46) )
+			return;
+		
+		curpos += 8;
+		
+		if ( !((curpos + 4) < Self.DataBuffer.length) )
+			return;
+		
+		// Check riffType, should be "WAVE"
+		if ( !(Self.DataBuffer[curpos] == 0x57 && Self.DataBuffer[curpos + 1] == 0x41 && Self.DataBuffer[curpos + 2] == 0x56 && Self.DataBuffer[curpos + 3] == 0x45) )
+			return;
+		
+		curpos += 4;
+		
+		if ( !((curpos + 4) < Self.DataBuffer.length) )
+			return;
+		
+		// Check for format subchunk, should be "fmt "
+		if ( !(Self.DataBuffer[curpos] == 0x66 && Self.DataBuffer[curpos + 1] == 0x6d && Self.DataBuffer[curpos + 2] == 0x74 && Self.DataBuffer[curpos + 3] == 0x20) )
+			return;
+			
+		curpos += 4;
+		
+		if ( !((curpos + 4) < Self.DataBuffer.length) )
+			return;
+		
+		var SubchunkSize  = Self.DataBuffer[curpos] | Self.DataBuffer[curpos + 1] << 8 | Self.DataBuffer[curpos + 2] << 16 | Self.DataBuffer[curpos + 3] << 24;
+		
+		if ( !((curpos + 4 + SubchunkSize) < Self.DataBuffer.length) )
+			return;
+		
+		curpos += 6;
+		
+		Self.WaveChannels = Self.DataBuffer[curpos] | Self.DataBuffer[curpos + 1] << 8;
+		
+		curpos += 2;
+		
+		Self.WaveSampleRate = Self.DataBuffer[curpos] | Self.DataBuffer[curpos + 1] << 8 | Self.DataBuffer[curpos + 2] << 16 | Self.DataBuffer[curpos + 3] << 24;
+		
+		curpos += 10;
+		
+		Self.WaveBitsPerSample = Self.DataBuffer[curpos] | Self.DataBuffer[curpos + 1] << 8;
+		
+		Self.WaveBytesPerSample = Self.WaveBitsPerSample / 8;
 				
-				if ((curpos + 4) < Self.DataBuffer.length)
-				{
-					if (Self.DataBuffer[curpos] == 0x57 && Self.DataBuffer[curpos + 1] == 0x41 && Self.DataBuffer[curpos + 2] == 0x56 && Self.DataBuffer[curpos + 3] == 0x45)
-					{
-						curpos = 12;
-						var end = false;
-							
-						while (!end)
-						{
-							if ((curpos + 8) < Self.DataBuffer.length)
-							{
-								var SubchunkSize  = Self.DataBuffer[curpos + 4] | Self.DataBuffer[curpos + 5] << 8 | Self.DataBuffer[curpos + 6] << 16 | Self.DataBuffer[curpos + 7] << 24;
-								if (Self.DataBuffer[curpos] == 0x64 && Self.DataBuffer[curpos + 1] == 0x61 && Self.DataBuffer[curpos + 2] == 0x74 && Self.DataBuffer[curpos + 3] == 0x61) // Data chunk found
-									end = true;
-								else
-									curpos += 8 + SubchunkSize;
-								
-							}
-							else
-								return;
-						}
-						curpos += 8;
-						
-						Self.RiffHeader = new Uint8Array(Self.DataBuffer.buffer.slice(0, curpos));
-
-						var TotalBatchSize = Self.BatchSize + Self.RiffHeader.length;
-						
-						// Fix header
-						Self.RiffHeader[4] = TotalBatchSize & 0xFF;
-						Self.RiffHeader[5] = (TotalBatchSize & 0xFF00) >>> 8;
-						Self.RiffHeader[6] = (TotalBatchSize & 0xFF0000) >>> 16;
-						Self.RiffHeader[7] = (TotalBatchSize & 0xFF000000) >>> 24;
-
-						Self.RiffHeader[Self.RiffHeader.length-4] = Self.BatchSize & 0xFF;
-						Self.RiffHeader[Self.RiffHeader.length-3] = (Self.BatchSize & 0xFF00) >>> 8;
-						Self.RiffHeader[Self.RiffHeader.length-2] = (Self.BatchSize & 0xFF0000) >>> 16;
-						Self.RiffHeader[Self.RiffHeader.length-1] = (Self.BatchSize & 0xFF000000) >>> 24;
-
-						Self.GotHeader = true;
-
-						return;
-					}
-				}
+		curpos += SubchunkSize - 14;
+		
+		var end = false;
+			
+		while (!end)
+		{
+			if ((curpos + 8) < Self.DataBuffer.length)
+			{
+				var SubchunkSize  = Self.DataBuffer[curpos + 4] | Self.DataBuffer[curpos + 5] << 8 | Self.DataBuffer[curpos + 6] << 16 | Self.DataBuffer[curpos + 7] << 24;
+				// Check for data subchunk, should be "data"
+				if (Self.DataBuffer[curpos] == 0x64 && Self.DataBuffer[curpos + 1] == 0x61 && Self.DataBuffer[curpos + 2] == 0x74 && Self.DataBuffer[curpos + 3] == 0x61) // Data chunk found
+					end = true;
+				else
+					curpos += 8 + SubchunkSize;
+				
 			}
+			else
+				return;
 		}
+		curpos += 8;
+		
+		Self.RiffHeader = new Uint8Array(Self.DataBuffer.buffer.slice(0, curpos));
+
+		var BatchSampleSize = (Self.BatchSize + Self.ExtraEdgeBytes * 2);
+		var TotalBatchSize = BatchSampleSize + Self.RiffHeader.length;
+		
+		// Fix header
+		Self.RiffHeader[4] = TotalBatchSize & 0xFF;
+		Self.RiffHeader[5] = (TotalBatchSize & 0xFF00) >>> 8;
+		Self.RiffHeader[6] = (TotalBatchSize & 0xFF0000) >>> 16;
+		Self.RiffHeader[7] = (TotalBatchSize & 0xFF000000) >>> 24;
+
+		Self.RiffHeader[Self.RiffHeader.length-4] = BatchSampleSize & 0xFF;
+		Self.RiffHeader[Self.RiffHeader.length-3] = (BatchSampleSize & 0xFF00) >>> 8;
+		Self.RiffHeader[Self.RiffHeader.length-2] = (BatchSampleSize & 0xFF0000) >>> 16;
+		Self.RiffHeader[Self.RiffHeader.length-1] = (BatchSampleSize & 0xFF000000) >>> 24;
+
+		Self.GotHeader = true;
+
+		return;
 	}
 
 	// Checks if there is a samples ready to be extracted
 	function CanExtractSamples ()
 	{
-		if (Self.DataBuffer.length >= Self.BatchSize)
+		if (Self.DataBuffer.length >= (Self.BatchSize + 2 * Self.ExtraEdgeBytes))
 			return true;
 		else
 			return false;
@@ -265,13 +309,17 @@ function AudioFormatReader_WAV (ErrorCallback, DataReadyCallback)
 	function ExtractIntSamples()
 	{
 		// Extract sample data from buffer
-		var intsamplearray = new Uint8Array(Self.DataBuffer.buffer.slice(0, Self.BatchSize));
-
+		var intsamplearray = new Uint8Array(Self.DataBuffer.buffer.slice(0, Self.BatchSize + 2 * Self.ExtraEdgeBytes));
+		
+		console.log(intsamplearray.length, Self.DataBuffer.length);
+		
 		// Remove samples from buffer
-		if ((Self.BatchSize + 1) < Self.DataBuffer.length)
+		if (Self.DataBuffer.length > (Self.BatchSize + 2 * Self.ExtraEdgeBytes))
 			Self.DataBuffer = new Uint8Array(Self.DataBuffer.buffer.slice(Self.BatchSize));
 		else
 			Self.DataBuffer = new Uint8Array(0);
+		
+		console.log(Self.DataBuffer.length);
 		
 		return intsamplearray;
 	}
