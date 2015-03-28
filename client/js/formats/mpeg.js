@@ -38,23 +38,27 @@ function AudioFormatReader_MPEG (ErrorCallback, DataReadyCallback)
 	
 	// Number of frames to decode together (keyword: byte-reservoir)
 	// For live streaming this means that you should push the same number of frames
-   // on connection to the client to reduce waiting time (latency is NOT effected by this)
-	if (Android && Firefox)
+	// on connection to the client to reduce waiting time (latency is NOT effected by this)
+	if (isAndroid && isFirefox)
 		this.WindowSize = 50;
-	else if (Android)
+	else if (isAndroid && isNativeChrome)
+		this.WindowSize = 30;
+	else if (isAndroid)
 		this.WindowSize = 30;
 	else
 		this.WindowSize = 25;
 	
 	// Number of frames to use from one decoded window
-	if (Android && Firefox)
+	if (isAndroid && isFirefox)
 		this.UseFrames = 40;
-	else if (Android)
+	else if (isAndroid && isNativeChrome)
 		this.UseFrames = 20;
+	else if (isAndroid)
+		this.UseFrames = 5;
 	else
 		this.UseFrames = 1;
-
-	if (Android)
+	
+	if (isAndroid && isNativeChrome)
 		this.OffsetRightFactor = 1.5;
 	else
 		this.OffsetRightFactor = 1;	
@@ -298,7 +302,7 @@ function AudioFormatReader_MPEG (ErrorCallback, DataReadyCallback)
 		// Calculate the expected number of samples
 		CalcSampleCount = Math.ceil(CalcSampleCount * buffer.sampleRate / CalcSampleRate);
 		
-		console.log(CalcSampleCount, buffer.length);
+		//console.log(CalcSampleCount, buffer.length);
 		
 		var DecoderOffset;
 		
