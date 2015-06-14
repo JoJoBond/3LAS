@@ -41,7 +41,7 @@ function HTMLPlayerControls(DivID)
 	
 	this.VolumeKnob.style.left = this.TotalBarSize + "px";
 	
-	function hMouseDown(e)
+	function hInteractBegin(e)
 	{
 		Self.VolumeDragging = true;
 		if(window.e)
@@ -50,21 +50,24 @@ function HTMLPlayerControls(DivID)
 		
 		UpdateVolume(mousex - Self.KnobRadius);
 	}
-	this.VolumeContainer.onmousedown = hMouseDown;
+	this.VolumeContainer.ontouchstart = hInteractBegin;
+	this.VolumeContainer.onmousedown = hInteractBegin;
 	
-	function hMouseUp(e)
+	function hInteractEnd(e)
 	{
 		Self.VolumeDragging = false;
 	}
-	this.VolumeContainer.onmouseup = hMouseUp;
+	this.VolumeContainer.onmouseup = hInteractEnd;
+	this.VolumeContainer.ontouchend = hInteractEnd;
 	
-	function hMouseLeave(e)
+	function hInteractLeave(e)
 	{
 		Self.VolumeDragging = false;
 	}
-	this.VolumeContainer.onmouseleave = hMouseLeave;
+	this.VolumeContainer.onmouseleave = hInteractLeave;
+	this.VolumeContainer.ontouchleave = hInteractLeave;
 	
-	function hMouseMove(e)
+	function hInteractMove(e)
 	{
 		if (Self.VolumeDragging)
 		{
@@ -75,7 +78,8 @@ function HTMLPlayerControls(DivID)
 			UpdateVolume(mousex - Self.KnobRadius);
 		}
 	}
-	this.VolumeContainer.onmousemove = hMouseMove;
+	this.VolumeContainer.onmousemove = hInteractMove;
+	this.VolumeContainer.ontouchmove = hInteractMove;
 
 	this.ButtonBar = getChildByClass(this.PlayerControls, "controlbar");
 	if (this.ButtonBar == null)
