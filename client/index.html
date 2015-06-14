@@ -2,13 +2,12 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8">
-		
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0">
 		<meta name="apple-mobile-web-app-title" content="3LAS (Low Latency Live Audio Streaming)">
 		<meta name="apple-mobile-web-app-capable" content="yes">
 		<meta name="apple-mobile-web-app-status-bar-style" content="black">
 		<meta name="format-detection" content="telephone=no">
-		
+
 		<title>3LAS (Low Latency Live Audio Streaming)</title>
 		
 		<link rel="stylesheet" href="css/main.css">
@@ -27,12 +26,57 @@
 		<script src="js/formats/wav.js"></script>
 		<script>
 			var ua = navigator.userAgent.toLowerCase();
-			var Android = (ua.match('android') ? true : false);
-			var iOS = (ua.match(/(ipad|iphone|ipod)/g) ? true : false);
-			var Chrome = (ua.match(/(chromium|chrome|crios)/g) ? true : false);
-			var Firefox = (ua.match(/(gecko|fennec|firefox)/g) ? true : false);
 			
+			var isAndroid = (ua.match('android') ? true : false);
+			var isIOS = (ua.match(/(ipad|iphone|ipod)/g) ? true : false);
+			var isWindows = (ua.match('windows') ? true : false);
+			var isLinux = (ua.match('android') ? false : (ua.match('linux') ? true : false));
+			var isBSD = (ua.match('bsd') ? true : false);
+			var isMacOSX = (ua.match('mac osx') ? true : false);
 			
+			var isInternetExplorer = (ua.match('msie') ? true : false);
+			var isSafari = (ua.match(/(chromium|chrome|crios)/g) ? false : (ua.match('safari') ? true : false));
+			var isOpera = (ua.match('opera') ? true : false);
+			var isChrome = (ua.match(/(chromium|chrome|crios)/g) ? true : false);
+			var isFirefox = (ua.match('like gecko') ? false : (ua.match(/(gecko|fennec|firefox)/g) ? true : false));
+			
+			var webkitVer = parseInt((/WebKit\/([0-9]+)/.exec(navigator.appVersion) || 0)[1],10) || void 0; // also match AppleWebKit
+			var isNativeChrome = isAndroid && webkitVer <= 537 && navigator.vendor.toLowerCase().indexOf('google') == 0;
+			
+			var BrowserName = "Unknown";
+			
+			if (isInternetExplorer)
+				BrowserName = "IE";
+			else if (isSafari)
+				BrowserName = "Safari";
+			else if (isOpera)
+				BrowserName = "Opera";
+			else if (isChrome)
+				BrowserName = "Chrome";
+			else if (isFirefox)
+				BrowserName = "Firefox";
+			else if (isNativeChrome)
+				BrowserName = "NativeChrome";
+			else
+				BrowserName = "Unknown";
+			
+			var OSName = "Unknown";
+			
+			if (isAndroid)
+				OSName = "Android";
+			else if (isIOS)
+				OSName = "iOS";
+			else if (isWindows)
+				OSName = "Windows";
+			else if (isLinux)
+				OSName = "Linux";
+			else if (isBSD)
+				OSName = "BSD";
+			else if (isMacOSX)
+				OSName = "MacOSX";
+			else
+				OSName = "Unknown";
+
 			// Server settings
 			var Formats = new Array(
 				// Mp3 is prefered
@@ -90,12 +134,9 @@
 			// Initialize modules
 			function Init()
 			{
-				LogEvent("Detected: " + (Android ? "Android": "") + (iOS ? "iOS": "") + (Android || iOS ? "": "Unknown OS") + ", " +
-							(Chrome ? "Chrome" : "") + (Firefox ? "Firefox" : "") + (Chrome || Firefox ? "": "Unknown Browser")
-							
-							
-							
-							);
+				LogEvent("Detected: " + 
+				(OSName == "MacOSX" ? "Mac OSX": (OSName == "Unknown" ? "Unknown OS" : OSName)) + ", " +
+				(BrowserName == "IE" ? "Internet Explorer" : (BrowserName == "NativeChrome" ? "Chrome legacy" : (BrowserName == "Unknown" ? "Unknown Browser" : BrowserName))));
 				
 				
 				if (typeof WebSocket === "undefined" && typeof webkitWebSocket === "undefined" && typeof mozWebSocket === "undefined")
@@ -128,16 +169,23 @@
 					return;
 				}
 				
-				if (iOS && !Chrome)
+				LogEvent("Using MIME: " + SelectedMIME + " on port: " + SelectedPORT);
+				
+				
+				if (isIOS && !isChrome)
 				{
-					document.getElementById("chromesuggestion").style.display = "block";
+					//document.getElementById("chromesuggestion").style.display = "block";
+					
+					// For some reason this makes iOS run the stream in the background (with screen off)
+					
 					iosSleepPreventInterval = setInterval(function () {
-						window.location.href = "/new/page";
-						window.setTimeout(function () {
+						//window.location.href = "/new/page";
+						/*window.setTimeout(function () {
 							window.stop();
-						}, 0);
+						}, 0);*/
 					}, 30000);
 				}
+				
 				
 				document.getElementById("viewcontainer").style.display = "block";
 				
@@ -168,7 +216,7 @@
 				
 				try
 				{
-					FormatReader = new AudioFormatReader("audio/mpeg", OnReaderError, OnReaderDataReady);
+					FormatReader = new AudioFormatReader(SelectedMIME, OnReaderError, OnReaderDataReady);
 					LogEvent("Init of AudioFormatReader succeeded");
 				}
 				catch (e)
@@ -209,21 +257,20 @@
 			}
 			
 			
-			// Callback function from format reader
+			// Callback functions from format reader
 			function OnReaderError ()
 			{			
 				LogEvent("Reader error: Decoding failed.");
 			}
 			
 			function OnReaderDataReady (data)
-			{			
+			{
 				while (FormatReader.SamplesAvailable())
 				{
 					AudioPlayer.PushBuffer(FormatReader.PopSamples());
 				}
 			}
-			
-			
+
 			// Callback function from socket connection
 			function OnSocketError (error)
 			{
@@ -307,7 +354,7 @@
 			<p><span onclick="hideChromeBanner();">Ignore and continue</span></p>
 		</div>
 		<div class="errormessage" id="typesunsupported" style="display: none;">
-			<p>The used datatypes are not supported by your browser!</p>
+			<p>None of the used datatypes are supported by your browser!</p>
 			<p>Please try another browser.</p>
 		</div>
 		<div class="errormessage" id="socketsunsupported" style="display: none;">
