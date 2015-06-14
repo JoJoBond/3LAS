@@ -37,8 +37,8 @@ function AudioFormatReader_MPEG (ErrorCallback, DataReadyCallback)
 	this.AddID3Tag = true;
 	
 	// Number of frames to decode together (keyword: byte-reservoir)
-	// For live streaming this means that you should push the same number of frames
-	// on connection to the client to reduce waiting time (latency is NOT effected by this)
+	// For live streaming this means that you can push the minimum number of frames
+	// on connection to the client to reduce waiting time without effecting the latency.
 	if (isAndroid && isFirefox)
 		this.WindowSize = 50;
 	else if (isAndroid && isNativeChrome)
@@ -56,12 +56,7 @@ function AudioFormatReader_MPEG (ErrorCallback, DataReadyCallback)
 	else if (isAndroid)
 		this.UseFrames = 5;
 	else
-		this.UseFrames = 1;
-	
-	if (isAndroid && isNativeChrome)
-		this.OffsetRightFactor = 1.5;
-	else
-		this.OffsetRightFactor = 1;	
+		this.UseFrames = 2;
 	
 	// Constants:
 	// ==========
@@ -154,6 +149,8 @@ function AudioFormatReader_MPEG (ErrorCallback, DataReadyCallback)
 	
 	this.FrameSamples = 0;
 	this.FrameSampleRate = 0;
+	
+	this.TimeBudget = 0;
 	
 
 	// Methods (external functions):
@@ -267,8 +264,8 @@ function AudioFormatReader_MPEG (ErrorCallback, DataReadyCallback)
 					offset += Self.Frames[i].data.length;
 				}
 				
-				// Remove the first frame of the array
-				for(var i = 0; i < Self.UseFrames; i++)
+				// Remove the used frames from the array
+				for(var i = 0; i < (Self.UseFrames - 1); i++)
 					Self.Frames.shift();
 				
 				// Push window to the decoder
@@ -291,6 +288,7 @@ function AudioFormatReader_MPEG (ErrorCallback, DataReadyCallback)
 	// Is called if the decoding of the window succeeded
 	function decodeSuccess (buffer, SampleRates, SampleCount)
 	{
+		/*
 		// Get sample rate from first frame
 		var CalcSampleRate = SampleRates[0];
 		
@@ -301,21 +299,40 @@ function AudioFormatReader_MPEG (ErrorCallback, DataReadyCallback)
 		
 		// Calculate the expected number of samples
 		CalcSampleCount = Math.ceil(CalcSampleCount * buffer.sampleRate / CalcSampleRate);
+		*/
 		
-		//console.log(CalcSampleCount, buffer.length);
+		// Sum up the playback time of each decoded frame
+		// Note: Since mp3-Frames overlap by half of their sample-length we expect the
+		// first and last frame to be only half as long. Some decoders will still output
+		// the full frame length by adding zeros.
+		
+		var CalcTotalPlayTime = 0;
+		CalcTotalPlayTime += SampleCount[0] / SampleRates[0] / 2.0;
+		for (var i = 1; i < (SampleCount.length-1); i++)
+			CalcTotalPlayTime += SampleCount[i] / SampleRates[i];
+		CalcTotalPlayTime += SampleCount[SampleCount.length-1] / SampleRates[SampleCount.length-1] / 2.0;
+		
+		// Calculate the expected number of samples
+		var CalcSampleCount = CalcTotalPlayTime * buffer.sampleRate;
+		
+		//console.log(CalcTotalPlayTime, buffer.duration);
 		
 		var DecoderOffset;
 		
 		// Check if we got the expected number of samples
-		if (CalcSampleCount > buffer.length)
+		if (CalcTotalPlayTime > buffer.duration)
 		{
 			// We got less samples than expect, we suspect that they were truncated equally at start and end.
-			DecoderOffset = Math.ceil((CalcSampleCount - buffer.length) / 2)
+			var OffsetTime = (CalcTotalPlayTime - buffer.duration) / 2.0;
+			
+			DecoderOffset = Math.ceil(OffsetTime * buffer.sampleRate);
 		}
-		else if (CalcSampleCount < buffer.length)
+		else if (CalcTotalPlayTime < buffer.duration)
 		{
-			// We got more samples than expect, we suspect that they were added equally at start and end.
-			DecoderOffset = -1 * Math.ceil((buffer.length - CalcSampleCount) / 2)
+			// We got more samples than expect, we suspect that zeros were added equally at start and end.
+			var OffsetTime = (buffer.duration - CalcTotalPlayTime) / 2.0;
+			
+			DecoderOffset = -1.0 * Math.ceil(OffsetTime * buffer.sampleRate);
 		}
 		else
 		{
@@ -329,21 +346,44 @@ function AudioFormatReader_MPEG (ErrorCallback, DataReadyCallback)
 		// [granule size] is equal to half of a [frame size] in samples (using the mp3's sample rate)
 		
 		// Calculate the size and offset of the frame to extract
-		var OffsetRight = Math.ceil(Math.ceil(SampleCount[SampleCount.length - 1] / 2 * buffer.sampleRate / CalcSampleRate) * Self.OffsetRightFactor);
+		//var OffsetRight = Math.ceil(Math.ceil(SampleCount[SampleCount.length - 1] / 2 * buffer.sampleRate / CalcSampleRate) * Self.OffsetRightFactor);
 
-		var ExtractSize = 0;
-		for(var i = 0; i < Self.UseFrames; i++)
-			ExtractSize += SampleCount[SampleCount.length - 2 - i];
+		var ExtractTimeSum = 0;
 		
-		ExtractSize = Math.ceil(ExtractSize * buffer.sampleRate / CalcSampleRate);
+		ExtractTimeSum += SampleCount[SampleCount.length - 1] / SampleRates[SampleCount.length - 1] / 2.0;
+		
+		for(var i = 1; i < (Self.UseFrames - 1); i++)
+			ExtractTimeSum += SampleCount[SampleCount.length - 1 - i] / SampleRates[SampleCount.length - 1 - i];
+			
+		ExtractTimeSum += SampleCount[SampleCount.length - Self.UseFrames] / SampleRates[SampleCount.length - Self.UseFrames] / 2.0
 
+		var ExtractSampleNum = ExtractTimeSum * buffer.sampleRate;
+		
+		Self.TimeBudget += (ExtractSampleNum - Math.floor(ExtractSampleNum)) / buffer.sampleRate;
+		
+		var BudgetSamples = 0;
+		if (Self.TimeBudget * buffer.sampleRate > 1.0)
+		{
+			BudgetSamples = Math.floor(Self.TimeBudget * buffer.sampleRate);
+			Self.TimeBudget -= BudgetSamples / buffer.sampleRate;
+		}
+		else if (Self.TimeBudget * buffer.sampleRate < -1.0)
+		{
+			BudgetSamples = -1.0 * Math.floor(Math.abs(Self.TimeBudget * buffer.sampleRate));
+			Self.TimeBudget -= BudgetSamples / buffer.sampleRate;
+		}
+		
+		ExtractSampleNum = Math.floor(ExtractSampleNum) + BudgetSamples;
+		
+		var OffsetRight = 0; //Math.ceil((SampleCount[SampleCount.length - 1] / SampleRates[SampleCount.length - 1] / 2.0) * buffer.sampleRate * Self.OffsetRightFactor);
+		
 		// Create a buffer that can hold the frame to extract
-		var audioBuffer = Self.SoundContext.createBuffer(buffer.numberOfChannels, ExtractSize, buffer.sampleRate);
+		var audioBuffer = Self.SoundContext.createBuffer(buffer.numberOfChannels, ExtractSampleNum, buffer.sampleRate);
 
 		// Fill buffer with the last part of the decoded frame leave out last granule
 		for (var i = 0; i < buffer.numberOfChannels; i++)
 			audioBuffer.getChannelData(i).set(buffer.getChannelData(i).subarray(
-				buffer.length - OffsetRight + DecoderOffset - ExtractSize,
+				buffer.length - OffsetRight + DecoderOffset - ExtractSampleNum,
 				buffer.length - OffsetRight + DecoderOffset
 			));
 		
