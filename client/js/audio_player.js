@@ -81,6 +81,13 @@ function PCMAudioPlayer ()
 		// Create new audio source for the buffer
 		var SourceNode = Self.SoundContext.createBufferSource();
 		
+		// Make sure the node deletes itself after playback
+		SourceNode.onended = function () {
+			var ThisNode = SourceNode;
+			ThisNode.disconnect();
+			ThisNode = null;
+		}
+		
 		// Pass audio data to source
 		SourceNode.buffer = audioBuffer;
 		
@@ -115,6 +122,13 @@ function PCMAudioPlayer ()
 	{
 		// Create new audio source for the buffer
 		var SourceNode = Self.SoundContext.createBufferSource();
+		
+		// Make sure the node deletes itself after playback
+		SourceNode.onended = function () {
+			var ThisNode = SourceNode;
+			ThisNode.disconnect();
+			ThisNode = null;
+		}
 		
 		// Prevent looping (the standard says that it should be off by default)
 		SourceNode.loop = false;
