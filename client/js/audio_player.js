@@ -51,9 +51,9 @@ function PCMAudioPlayer ()
 	function SetVolume (Value)
 	{
 		// Limit value to [0.0 ; 1.0]
-		if (Value > 1.0)
+		/*if (Value > 1.0)
 			Value = 1.0;
-		else if (Value <= 0.0)
+		else */if (Value <= 0.0)
 			Value = 1e-20;
 		
 		// Cancel any scheduled ramps
