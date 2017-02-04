@@ -18,8 +18,6 @@ this.Options;
 
 this.ClientList = new Array();
 
-this.GotHeader = false;
-
 this.HeaderBuffer = new Array();
 
 this.BurstBuffer = new Array();
@@ -206,66 +204,29 @@ function stdinData (chunk)
 	// Check if vorbis / opus headers for ogg
 	if (Self.Options["type"] == "ogg")
 	{
-		if (!Self.GotHeader)
+		// Read absolute granule position
+		var absolute_granule_position = chunk[6] | chunk[7] << 8 | chunk[8] << 16 | chunk[9] << 24 |
+										chunk[10] << 32 | chunk[11] << 40 | chunk[12] << 48 | chunk[13] << 56;
+		
+		// Check if page is a header candidate
+		if (absolute_granule_position === 0x0000000000000000)
 		{
+			var page_segments    = chunk[26];
+
+			var content_start = 27 + page_segments;
 			
-			while (chunk.length > 0 && !Self.GotHeader)
+			// Check if magic number of headers match
+
+			if ((content_start + 3) < chunk.length)
 			{
-				// Check in absolute granule position if page is a header page candidate
-				var IsHeaderCandidate   = (chunk[6] == 0x00 && chunk[7] == 0x00 && chunk[8] == 0x00 && chunk[9] == 0x00 
-								&& chunk[10] == 0x00 && chunk[11] == 0x00 && chunk[12] == 0x00 && chunk[13] == 0x00);
-				
-				if (!IsHeaderCandidate)
+				if	(chunk[content_start] == 0x4F && chunk[content_start+1] == 0x70 && chunk[content_start+2] == 0x75 && chunk[content_start+3] == 0x73) // 'Opus'
+					Self.HeaderBuffer.push(chunk);
+				else if ((content_start + 6) < chunk.length)
 				{
-					Self.GotHeader = true;
-					break;
+					if (chunk[content_start+1] == 0x76 && chunk[content_start+2] == 0x6f && chunk[content_start+3] == 0x72 &&  // 'vorbis'
+						chunk[content_start+4] == 0x62 && chunk[content_start+5] == 0x69 && chunk[content_start+6] == 0x73)
+							Self.HeaderBuffer.push(chunk);
 				}
-				
-				var page_segments = chunk[26];
-				
-				var pageend = page_segments + 26;
-				
-				if (chunk.length < page_segments + 27 + 7)
-				{
-					Self.GotHeader = true;
-					break;
-				}
-				
-				IsHeader = (chunk[26 + page_segments + 1] == 0x4f && chunk[26 + page_segments + 2] == 0x70 && chunk[26 + page_segments + 3] == 0x75 && // "Opus"
-								chunk[26 + page_segments + 4] == 0x73);
-								
-				if (!IsHeader)
-				{
-					if (chunk.length < page_segments + 27 + 7)
-					{
-						Self.GotHeader = true;
-						break;
-					}
-					
-					IsHeader = (chunk[26 + page_segments + 2] == 0x76 && chunk[26 + page_segments + 3] == 0x6f && chunk[26 + page_segments + 4] == 0x72 && // "vorbis"
-									chunk[26 + page_segments + 5] == 0x62 && chunk[26 + page_segments + 6] == 0x69 && chunk[26 + page_segments + 7] == 0x73);
-					
-					console.log("vorbis: " + IsHeader);
-				}
-				
-				if (!IsHeader)
-				{
-					Self.GotHeader = true;
-					break;
-				}
-				
-				for (var i = 0; i < page_segments; i++)
-					pageend += chunk[27+i];
-				
-				
-				var tmp_header = new Buffer(pageend+1);
-				chunk.copy(tmp_header, 0, 0, pageend+1);
-				
-				Self.HeaderBuffer.push(tmp_header);
-				
-				//fs.writeFile("tmp_header" + Self.num++, tmp_header, function (err) {});
-				
-				chunk = chunk.slice(pageend+1);		
 			}
 		}
 	}
@@ -324,7 +285,4 @@ function ClientDisconnected (code, message, socket)
 	}
 }
 
-
-
 Init();
-
