@@ -1,3 +1,8 @@
+// WARNING, this is OGG Vorbis and OGG Opus
+// Most of the stuff here is not trivial and trying to understand is beyond human.
+// There might also be lot of dead code here, so don't wonder.
+// Abandon all hope, ye who enter here.
+
 function AudioFormatReader_OGG (ErrorCallback, DataReadyCallback)
 {
 	// Used to reference the current instance of this class within callback functions and methods
@@ -31,17 +36,18 @@ function AudioFormatReader_OGG (ErrorCallback, DataReadyCallback)
 	// ==========
 	
 	// Number of pages to decode together
-	// For live streaming this means that you should push the same number of pages
-    // on connection to the client to reduce waiting time
-	this.DecodePageNum = 4;
-	// Number of pages to actually use after decoding
-	this.DecodePageUse = 4;
+	// For vorbis I do not recommend to change this, EVER!
+	this.WindowSize = 2;
+	
 	
 	// Internal variables:
 	// ===================
 	
-	// Stores the complete opus/vorbis header
-	this.FullHeader = new Uint8Array(0);
+	// Stores the complete vorbis/opus header
+	this.FullVorbisHeader = new Uint8Array(0);
+	this.HeaderComplete = false;
+	this.IsOpus = false;
+	this.IsVorbis = false;
 		
 	// Data buffer for "raw" pagedata
 	this.DataBuffer = new Uint8Array(0);
@@ -52,19 +58,14 @@ function AudioFormatReader_OGG (ErrorCallback, DataReadyCallback)
 	// Array for individual bunches of samples
 	this.Samples = new Array();
 	
-	// Indices that mark page borders3
+	// Page related variables
 	this.PageStartIdx = -1;
 	this.PageEndIdx = -1;
-	this.Segments = new Array();
 	this.ContinuingPage = false;
-	this.IsHeader = false;
+	this.MightBeHeader = false;
 	this.LastAGPosition = 0;
 	this.PageSampleLength = 0;
 	
-	// Codec related information
-	this.SampleRate = 0;
-	this.IsVorbis = false;
-	this.IsOpus = false;
 	
 	// Methods (external functions):
 	// =============================
@@ -122,7 +123,10 @@ function AudioFormatReader_OGG (ErrorCallback, DataReadyCallback)
 		Self.PageStartIdx = -1;
 		Self.PageEndIdx = -1;
 	}
-	
+
+	this.isDecoding = false;
+
+	this.DecodeQueue = new Array();
 	
 	// Internal functions:
 	// ===================
@@ -147,8 +151,9 @@ function AudioFormatReader_OGG (ErrorCallback, DataReadyCallback)
 				// Note:
 				// =====
 				// Vorbis and Opus have an overlapping between segments.
-				// To decode we have to push at least two pages into the decoder.
-				// This adds a delay of [segment length] / 2 samples to the stream.
+				// To compensate for that, we decode 3 segments together, 
+				// but only use the samples from the middle one.
+				// This adds a delay of [segment length] samples to the stream.
 				// The segment length can be up to 8192 samples for Vorbis (!) (170ms @ 48kHz)
 				
 				// TODO: Depending on if Opus or Vorbis is used, minimize the number of unused samples
@@ -162,23 +167,26 @@ function AudioFormatReader_OGG (ErrorCallback, DataReadyCallback)
 				//                         Find some source if SILK has an overlap aswell...
 				//                         (Maybe here: www.opus-codec.org/docs/draft-ietf-codec-opus-00.html ??)
 				
-				// Check if we have enough pages together
-				if (Self.Pages.length >= Self.DecodePageNum)
+				// Check if last pushed page is not a continuing page
+				if (Self.Pages[Self.Pages.length - 1]["continuing"] === false && Self.Pages.length >= Self.WindowSize)
 				{
-					console.log("decode push");
-					// Sum the lengths of the individuall pages
+					// Sum the bytelengths of the individuall pages, also store individual samplelengths in array
 					var bufferlength = 0;
+					var sample_lengths = new Array();
 					for (var i = 0; i < Self.Pages.length; i++)
+					{
 						bufferlength += Self.Pages[i]["data"].length;
+						sample_lengths.push(Self.Pages[i]["samplelength"]);
+					}
 					
 					// Create a buffer long enough to hold everything
-					var pagesbuffer = new Uint8Array(Self.FullHeader.length + bufferlength);
+					var pagesbuffer = new Uint8Array(Self.FullVorbisHeader.length + bufferlength);
 					
 					var offset = 0;
 					
 					// Add head to window
-					pagesbuffer.set(Self.FullHeader, offset);
-					offset += Self.FullHeader.length;
+					pagesbuffer.set(Self.FullVorbisHeader, offset);
+					offset += Self.FullVorbisHeader.length;
 					
 					// Add the pages to the window
 					for (var i = 0; i < Self.Pages.length; i++)
@@ -187,71 +195,89 @@ function AudioFormatReader_OGG (ErrorCallback, DataReadyCallback)
 						offset += Self.Pages[i]["data"].length;
 					}
 					
-					// Get window lengths
-					var samplellengths = new Array();
-					
-					for (var i = 0; i < Self.Pages.length; i++)
-					{
-						samplellengths.push(Self.Pages[i]["samplellength"]);
-					}
-					
 					// Remove first page from the array
-					for (var i = 1; i < Self.DecodePageUse; i++)
-						Self.Pages.shift();
-					
-					// Push pages to the decoder
-					Self.SoundContext.decodeAudioData(pagesbuffer.buffer, function (buffer)
+					Self.Pages.shift();
+
+					if (Self.isDecoding)
 					{
-						var samplellengths_ = samplellengths;
-						decodeSuccess(buffer, samplellengths_);
-					}, decodeError);
+						Self.DecodeQueue.push({"data":pagesbuffer.buffer, "lengths": sample_lengths});
+					}
+					else
+					{
+						Self.isDecoding = true;
+					
+						// Push pages to the decoder
+						Self.SoundContext.decodeAudioData(pagesbuffer.buffer, function (buffer) {
+							decodeSuccess(buffer, sample_lengths);
+						}, decodeError);
+					}
 				}
 			}
 			else
 			{
 				// Add page to header buffer
-				Self.FullHeader = appendBuffer(Self.FullHeader, tmpPage["data"]);
-				if (Self.IsVorbis)
-					ParseVorbisHeader(tmpPage["data"]);
-				
-				console.log("head push");
+				Self.FullVorbisHeader = appendBuffer(Self.FullVorbisHeader, tmpPage["data"]);
 			}
 			// Look for pages
 			FindPage ();
 		}
 	}
 
-	// Is called if the decoding of the pages succeeded
-	function decodeSuccess (buffer, samplellengths)
+	function DecodeFromQueue ()
 	{
-		if (Self.DecodePageNum != Self.DecodePageUse)
+		if (Self.DecodeQueue.length > 0)
 		{
-			// Calucate the size of the samples we want to use
-			var UsedPagesSize = 0;
-			for (var i = (Self.DecodePageNum - Self.DecodePageUse + 1); i < samplellengths.length; i++)
-			{
-				UsedPagesSize += samplellengths[i];
-			}
+			Self.isDecoding = true;
+			var sample_lengths = Self.DecodeQueue[0]["lengths"];
+			var pagedata = Self.DecodeQueue[0]["data"];
 			
-			// Build buffer and fill it with the samples to use
-			var audioBuffer = Self.SoundContext.createBuffer(buffer.numberOfChannels, UsedPagesSize, buffer.sampleRate);
+			// Push pages to the decoder
+			Self.SoundContext.decodeAudioData(pagedata, function (buffer) {
+				decodeSuccess(buffer, sample_lengths);
+			}, decodeError);
+			Self.DecodeQueue.shift();
+		}
+	}
+
+	// Is called if the decoding of the pages succeeded
+	function decodeSuccess (buffer, sample_lengths)
+	{
+		// For opus we need to make some corrections due to the fixed overlapping
+		if (Self.IsOpus)
+		{
+			// Calculate size of the part we are interested in		
+			var partlength = Math.ceil((sample_lengths[sample_lengths.length - 1]) * buffer.sampleRate / 48000);
+
+			// Create a buffer that can hold the part
+			var audioBuffer = Self.SoundContext.createBuffer(buffer.numberOfChannels, partlength, buffer.sampleRate);
+			
+			// Fill buffer with the last part of the decoded pages
 			for (var i = 0; i < buffer.numberOfChannels; i++)
-				audioBuffer.getChannelData(i).set(buffer.getChannelData(i).subarray(buffer.length-UsedPagesSize, buffer.length));
-			
-			// Push samples into array
+				audioBuffer.getChannelData(i).set(buffer.getChannelData(i).subarray(buffer.length-partlength, buffer.length));
+				
+			// Push samples into arrray
 			Self.Samples.push(audioBuffer);
 		}
-		else			
+		else
+		{
+			// Push samples into arrray
 			Self.Samples.push(buffer);
+		}		
 		
 		// Callback to tell that data is ready
 		Self.DataReadyCallback();
+
+		// Check if there was data to decode meanwhile
+		Self.isDecoding = false;
+		DecodeFromQueue ();
 	}
 	
 	// Is called in case the decoding of the pages fails
 	function decodeError ()
 	{
 		Self.ErrorCallback();
+		Self.isDecoding = false;
+		DecodeFromQueue ();
 	}
 	
 	// Finds page boundries within the data buffer
@@ -281,144 +307,70 @@ function AudioFormatReader_OGG (ErrorCallback, DataReadyCallback)
 			// Check if we have enough data to process the static part of the header
 			if ((Self.PageStartIdx + 26) < Self.DataBuffer.length)
 			{
-				
-				Self.IsHeader = false;
 				// Get header data
 				
-				//var header_type_flag = Self.DataBuffer[Self.PageStartIdx + 5];
-
-				var absolute_granule_position = Self.DataBuffer[Self.PageStartIdx + 6] | Self.DataBuffer[Self.PageStartIdx + 7] << 8 |
-										Self.DataBuffer[Self.PageStartIdx + 8] << 16 | Self.DataBuffer[Self.PageStartIdx + 9] << 24 |
-										Self.DataBuffer[Self.PageStartIdx + 10] << 32 | Self.DataBuffer[Self.PageStartIdx + 11] << 40 |
-										Self.DataBuffer[Self.PageStartIdx + 12] << 48 | Self.DataBuffer[Self.PageStartIdx + 13] << 56;
+				var absolute_granule_position = Self.DataBuffer[Self.PageStartIdx + 6] | Self.DataBuffer[Self.PageStartIdx + 7] << 8 | Self.DataBuffer[Self.PageStartIdx + 8] << 16 | Self.DataBuffer[Self.PageStartIdx + 9] << 24 |
+										Self.DataBuffer[Self.PageStartIdx + 10] << 32 | Self.DataBuffer[Self.PageStartIdx + 11] << 40 | Self.DataBuffer[Self.PageStartIdx + 12] << 48 | Self.DataBuffer[Self.PageStartIdx + 13] << 56;
 				
 				var page_segments    = Self.DataBuffer[Self.PageStartIdx + 26];
 				
-				// Check if page is a header page candidate
-				var IsHeaderCandidate   = (absolute_granule_position === 0x0000000000000000);
-				
-				if(Self.LastAGPosition === 0 && absolute_granule_position !== 0xFFFFFFFFFFFFFFFF)
-					Self.LastAGPosition = absolute_granule_position;
-				
+				Self.IsHeader = false;
+							
 				// Get length of page in samples
-				Self.PageSampleLength = absolute_granule_position - Self.LastAGPosition;
+				if (Self.LastAGPosition > 0)
+					Self.PageSampleLength = absolute_granule_position - Self.LastAGPosition;
+				else
+					Self.PageSampleLength = 0;
 
-				if (Self.PageSampleLength > 6000)
-					console.log(Self.LastAGPosition);
-				
 				// Store total sample length if AGP is not -1
 				if (absolute_granule_position !== 0xFFFFFFFFFFFFFFFF)
 					Self.LastAGPosition = absolute_granule_position;
 				
+				// Check if page is a header candidate
+				if (absolute_granule_position === 0x0000000000000000)
+				{
+					var content_start = Self.PageStartIdx + 27 + page_segments;
+		
+					// Check if magic number of headers match
+
+					if ((content_start + 3) < Self.DataBuffer.length)
+					{
+						if	(Self.DataBuffer[content_start] == 0x4F && Self.DataBuffer[content_start+1] == 0x70 && // 'Opus'
+							Self.DataBuffer[content_start+2] == 0x75 && Self.DataBuffer[content_start+3] == 0x73)
+						{
+							Self.IsHeader = true;
+							Self.IsOpus = true;
+						}
+						else if ((content_start + 6) < Self.DataBuffer.length)
+						{
+							if (Self.DataBuffer[content_start+1] == 0x76 && Self.DataBuffer[content_start+2] == 0x6f && Self.DataBuffer[content_start+3] == 0x72 &&  // 'vorbis'
+								Self.DataBuffer[content_start+4] == 0x62 && Self.DataBuffer[content_start+5] == 0x69 && Self.DataBuffer[content_start+6] == 0x73)
+							{
+								Self.IsHeader = true;
+								Self.IsVorbis = true;
+							}
+						}
+					}
+				}
+
 				// Check if we have enough data to process the segment table
 				if ((Self.PageStartIdx + 26 + page_segments) < Self.DataBuffer.length)
 				{
 					// Sum up segments of the segment table
-					Self.Segments = new Array();
-					
-					var segments_size = 0;
 					var total_segments_size = 0;
 					for (var i = 0; i < page_segments; i++)
 					{
 						total_segments_size += Self.DataBuffer[Self.PageStartIdx + 27 + i];
-						segments_size += Self.DataBuffer[Self.PageStartIdx + 27 + i];
-						if (Self.DataBuffer[Self.PageStartIdx + 27 + i] < 0xFF)
-						{
-							Self.Segments.push(segments_size);
-							segments_size = 0;
-						}
 					}
 					
 					// Check if a package in the page will be continued in the next page
-					Self.ContinuingPage   = (Self.DataBuffer[Self.PageStartIdx + 26 + page_segments] == 0xFF);
-					
+					Self.ContinuingPage   = Self.DataBuffer[Self.PageStartIdx + 26 + page_segments] == 0xFF;
+					if (Self.ContinuingPage)
+						console.log("Continued ogg page found, check encoder settings.");				
+
 					// Set end page boundry
 					Self.PageEndIdx = Self.PageStartIdx + 27 + page_segments + total_segments_size;
 				}
-				
-				if (IsHeaderCandidate && (Self.PageStartIdx + 26 + page_segments + 4) < Self.DataBuffer.length)
-				{
-					Self.IsHeader = (Self.DataBuffer[Self.PageStartIdx + 26 + page_segments + 1] == 0x4f && Self.DataBuffer[Self.PageStartIdx + 26 + page_segments + 2] == 0x70 && // "Opus"
-									Self.DataBuffer[Self.PageStartIdx + 26 + page_segments + 3] == 0x75 &&	Self.DataBuffer[Self.PageStartIdx + 26 + page_segments + 4] == 0x73);
-					if (Self.IsHeader)
-						Self.IsOpus = true;
-				}
-				
-				if (!Self.IsHeader)
-				{
-					if (IsHeaderCandidate && (Self.PageStartIdx + 26 + page_segments + 7) < Self.DataBuffer.length)
-					{
-						Self.IsHeader = (Self.DataBuffer[Self.PageStartIdx + 26 + page_segments + 2] == 0x76 && Self.DataBuffer[Self.PageStartIdx + 26 + page_segments + 3] == 0x6f && // "vorbis"
-										Self.DataBuffer[Self.PageStartIdx + 26 + page_segments + 4] == 0x72 &&	Self.DataBuffer[Self.PageStartIdx + 26 + page_segments + 5] == 0x62 &&
-										Self.DataBuffer[Self.PageStartIdx + 26 + page_segments + 6] == 0x69 && Self.DataBuffer[Self.PageStartIdx + 26 + page_segments + 7] == 0x73);
-						if (Self.IsHeader)
-							Self.IsVorbis = true;
-					}
-					else
-						Self.IsHeader = false;
-				}
-			}
-		}
-	}
-
-	function ParseVorbisHeader (data)
-	{
-		var position = 0;
-		
-		// Skip ogg header
-		position += 26;
-		var page_segments    = data[position];
-		position += 1;
-		position += page_segments;
-		
-		while (position < data.length)
-		{
-			// Read packet type, skip packet header
-			var packet_type    = data[position];
-			position += 7;
-			
-			switch (packet_type)
-			{
-				case 1: // Identification header
-					// Skip vorbis verion and audio channels, read samplerate
-					position += 5;
-					Self.SampleRate = data[position] | data[position + 1] << 8 | data[position + 2] << 16 | data[position + 3] << 24;
-					position += 4;
-					// Skip bitrates, read blocksizes, skip framing flag
-					position += 12;
-					//Self.Blocksize0 = Math.pow(2, data[position] & 0x0F);
-					//Self.Blocksize1 = Math.pow(2, (data[position] & 0xF0) >>> 4);
-					
-					position += 2;
-					return;
-				case 3: // Comment header
-					// Read vendor length
-					var vendor_length = data[position] | data[position + 1] << 8 | data[position + 2] << 16 | data[position + 3] << 24;
-					position += 4;
-					// Skip vendor string
-					position += vendor_length;
-					// Reader user comment list length
-					var user_comment_list_length = data[position] | data[position + 1] << 8 | data[position + 2] << 16 | data[position + 3] << 24;
-					position += 4;
-					// Iterate the user comment list
-					for (var i = 0; i < user_comment_list_length; i++)
-					{
-						// Reader comment length
-						var comment_length = data[position] | data[position + 1] << 8 | data[position + 2] << 16 | data[position + 3] << 24;
-						position += 4;
-						// Skip comment
-						position += comment_length;
-					}
-					// Skip framing flag
-					position += 1;
-					break;
-				case 5: // Setup header
-					// Goto end of header
-					position = data.length - 1;
-					return;
-				default:
-					console.log("packet_type missmatch:", packet_type);
-					break;
 			}
 		}
 	}
@@ -450,19 +402,8 @@ function AudioFormatReader_OGG (ErrorCallback, DataReadyCallback)
 		Self.PageStartIdx = 0;
 		Self.PageEndIdx = -1;
 		
-		return {"data": pagearray, "continuing": Self.ContinuingPage, "samplellength": Self.PageSampleLength, "segments": Self.Segments};
+		return {"data": pagearray, "continuing": Self.ContinuingPage, "samplelength": Self.PageSampleLength};
 	}
-}
-
-function ilog (x)
-{
-	var return_value = 0;
-	while(x > 0)
-	{
-		return_value++;
-		x = x >>> 1;
-	}
-	return return_value;
 }
 
 // Used to append two Uint8Array (buffer2 comes BEHIND buffer1)
