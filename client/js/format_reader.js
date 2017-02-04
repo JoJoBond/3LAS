@@ -1,7 +1,3 @@
-/*
-	Format-Reader is part of 3LAS (Low Latency Live Audio Streaming)
-	https://github.com/JoJoBond/3LAS
-*/
 function AudioFormatReader (MIME, ErrorCallback, DataReadyCallback)
 {
 	// Used to reference the current instance of this class within callback functions and methods
