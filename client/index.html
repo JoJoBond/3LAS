@@ -41,6 +41,22 @@
 			var isFirefox = (ua.match('like gecko') ? false : (ua.match(/(gecko|fennec|firefox)/g) ? true : false));
 			
 			var webkitVer = parseInt((/WebKit\/([0-9]+)/.exec(navigator.appVersion) || 0)[1],10) || void 0; // also match AppleWebKit
+var ua = navigator.userAgent.toLowerCase();
+			
+			var isAndroid = (ua.match('android') ? true : false);
+			var isIOS = (ua.match(/(ipad|iphone|ipod)/g) ? true : false);
+			var isWindows = (ua.match('windows') ? true : false);
+			var isLinux = (ua.match('android') ? false : (ua.match('linux') ? true : false));
+			var isBSD = (ua.match('bsd') ? true : false);
+			var isMacOSX = (ua.match('mac osx') ? true : false);
+			
+			var isInternetExplorer = (ua.match('msie') ? true : false);
+			var isSafari = (ua.match(/(chromium|chrome|crios)/g) ? false : (ua.match('safari') ? true : false));
+			var isOpera = (ua.match('opera') ? true : false);
+			var isChrome = (ua.match(/(chromium|chrome|crios)/g) ? true : false);
+			var isFirefox = (ua.match('like gecko') ? false : (ua.match(/(gecko|fennec|firefox)/g) ? true : false));
+			
+			var webkitVer = parseInt((/WebKit\/([0-9]+)/.exec(navigator.appVersion) || 0)[1],10) || void 0; // also match AppleWebKit
 			var isNativeChrome = isAndroid && webkitVer <= 537 && navigator.vendor.toLowerCase().indexOf('google') == 0;
 			
 			var BrowserName = "Unknown";
@@ -80,9 +96,11 @@
 			// Server settings
 			var Formats = new Array(
 				// Mp3 is prefered
-				{"MIME": "audio/mpeg", "PORT": 9696}
-				// Ogg is fallback
-				//,{"MIME": "audio/ogg; codecs=vorbis", "PORT": 10102}
+				{"MIME": "audio/mpeg", "PORT": 9601},
+				// Wav is fallback
+				{"MIME": "audio/wav", "PORT": 9602}
+				// Ogg is not supported
+				//,{"MIME": "audio/ogg; codecs=vorbis", "PORT": 9603}
 			);
 			
 			var ServerName = '127.0.0.1';
@@ -153,14 +171,14 @@
 				
 				for (var i = 0; i < Formats.length; i++)
 				{
-						var AudioTag = new Audio();
-						var answer = AudioTag.canPlayType(Formats[i]["MIME"]);
-						if (answer === "probably" || answer === "maybe")
-						{
-							SelectedMIME = Formats[i]["MIME"];
-							SelectedPORT = Formats[i]["PORT"];
-							break;
-						}
+					var AudioTag = new Audio();
+					var answer = AudioTag.canPlayType(Formats[i]["MIME"]);
+					if (answer === "probably" || answer === "maybe")
+					{
+						SelectedMIME = Formats[i]["MIME"];
+						SelectedPORT = Formats[i]["PORT"];
+						break;
+					}
 				}
 				
 				if (SelectedMIME == "" || SelectedPORT == 0)
