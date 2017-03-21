@@ -13,7 +13,9 @@ function PCMAudioPlayer ()
 
 	if (VariSpeed)
 	{
-		var SpeedCorrectionParameter = 0.01;
+		// Crystal oscillator have a variance of about +/- 100ppm
+		// So worst case would be a difference of 200ppm between two oscillators.
+		var SpeedCorrectionParameter = 200 / 1.0e6;
 	
 		var OffsetVariance = 0.2;
 	
@@ -151,17 +153,22 @@ function PCMAudioPlayer ()
 			// Check if we are to far or too close to target schedule time
 			if (Self.NextTime - Self.SoundContext.currentTime > OffsetMax)
 			{
-				if (Self.Speed != 1.0 + SpeedCorrectionParameter)
+				if (Self.Speed < 1.0 + SpeedCorrectionParameter) {
+					// We are too slow, speed up playback (somewhat noticeable)
+					
 					console.log("speed up");
-				// We are too slow, speed up playback (somewhat noticeable)
-				Self.Speed = 1.0 + SpeedCorrectionParameter;
+					Self.Speed = 1.0 + SpeedCorrectionParameter;
+				}
 			}
 			else if(Self.NextTime - Self.SoundContext.currentTime < OffsetMin)
 			{
-				if (Self.Speed != 1.0 - SpeedCorrectionParameter)
+				if (Self.Speed > 1.0 - SpeedCorrectionParameter) {
+					// We are too fast, slow down playback (somewhat noticeable)
+					
 					console.log("speed down");
-				// We are too fast, slow down playback (somewhat noticeable)
-				Self.Speed = 1.0 - SpeedCorrectionParameter;
+					Self.Speed = 1.0 - SpeedCorrectionParameter;
+				}
+					
 				// Check if we ran out of time
 				if (Self.NextTime <= Self.SoundContext.currentTime)
 				{
@@ -178,10 +185,11 @@ function PCMAudioPlayer ()
 			}
 			else
 			{
-				// Check if we are in time. If so, set playback to default speed			
+				// Check if we are in time		
 				if ((Self.Speed > 1.0 && (Self.NextTime - Self.SoundContext.currentTime < StartOffset)) ||
 					(Self.Speed < 1.0 && (Self.NextTime - Self.SoundContext.currentTime > StartOffset)))
 				{
+					// We within our min/max offset, set playpacks to default
 					Self.Speed = 1.0;
 					console.log("normal speed");
 				}
