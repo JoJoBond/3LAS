@@ -37,9 +37,10 @@ Streaming server
 
 Notes
 ===
-Right now only MP3 works on the client side.
-WAV sort of works, but needs some fine-tuning.
-OGG is monstrous and needs a lot of wok.
+Right now only MP3 works best on the client side.
+WAV works mostly but can cause glitches (needs some fine-tuning).
+OGG vorbis has basic functionality (needs some more work).
+OGG opus has rudimentary (needs alot of work).
 
 In general you would want to have multiple formats running in parallel, giving the client a broad choice.
 This is to give the client a fallback when it doesn't support the first format offered, since most browsers/os'ses/hardwares do not support all the formats.

@@ -1,0 +1,24 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/3LAS/v15/.suo
+/.vs
+/server/node_modules
+/server/README.md
+/server/nw.mp3
+/server/npx.cmd
+/server/npx
+/server/npm.cmd
+/server/npm
+/server/node_perfctr_provider.man
+/server/node_etw_provider.man
+/server/nodevars.bat
+/server/node.exe
+/server/livetestwav.bat
+/server/livetestvorbis.bat
+/server/livetestopus.bat
+/server/livetestmp3.bat
+/server/LICENSE
+/server/ffmpeg.exe
+/server/CHANGELOG.md

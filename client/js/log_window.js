@@ -2,6 +2,7 @@
 	Log-Window is part of 3LAS (Low Latency Live Audio Streaming)
 	https://github.com/JoJoBond/3LAS
 */
+
 function LogEvent (info)
 {
 	var logwindow = document.getElementById("logwindow");
