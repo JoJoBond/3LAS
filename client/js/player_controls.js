@@ -5,9 +5,6 @@
 
 function HTMLPlayerControls (DivID)
 {
-	// Used to reference the current instance of this class, within callback functions and methods
-	var Self = this;
-
 	this._PlayerControls = document.getElementById(DivID);
 	if (this._PlayerControls == null)
 		throw new Error('HTMLPlayerControls: Could not find player controls via specified ID.');
@@ -163,7 +160,12 @@ HTMLPlayerControls.prototype.__hInteractBegin = function (e) {
     this._VolumeDragging = true;
     if (window.e)
         e = window.e;
-    var mousex = e.pageX - getOffsetSum(Self.VolumeContainer).left;
+
+    if(!e.pageX && e.changedTouches && e.changedTouches.length >= 1) {
+	    e.pageX = e.changedTouches[0].pageX;
+    }  
+	
+    var mousex = e.pageX - getOffsetSum(this.VolumeContainer).left;
 
     this._UpdateVolume(mousex - this._KnobRadius);
 };
@@ -180,7 +182,13 @@ HTMLPlayerControls.prototype.__hInteractMove = function (e) {
     if (this._VolumeDragging) {
         if (window.e)
             e = window.e;
-        var mousex = e.pageX - getOffsetSum(this._VolumeContainer).left;
+
+	    
+    if(!e.pageX && e.changedTouches && e.changedTouches.length >= 1) {
+	    e.pageX = e.changedTouches[0].pageX;
+    }  
+	    
+	var mousex = e.pageX - getOffsetSum(this._VolumeContainer).left;
 
         this._UpdateVolume(mousex - this._KnobRadius);
     }
