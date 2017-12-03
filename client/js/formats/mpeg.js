@@ -249,7 +249,7 @@ AudioFormatReader_MPEG.prototype._ExtractAllFrames = function () {
                 (function (buffer) {
                     var srates = SampleRates;
                     var scount = SampleCount;
-                    this.__decodeSuccess(buffer, srates, scount).bind(this);
+                    (this.__decodeSuccess.bind(this))(buffer, srates, scount);
                 }).bind(this),
                 this.__decodeError.bind(this)
             );
