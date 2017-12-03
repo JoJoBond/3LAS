@@ -185,7 +185,7 @@ AudioFormatReader_OGG.prototype._ExtractAllPages = function () {
 
                     // Push pages to the decoder
                     this._SoundContext.decodeAudioData(pagesbuffer.buffer,
-                        (function (buffer) { this.__decodeSuccess(buffer, sample_lengths).bind(this); }).bind(this),
+                        (function (buffer) { (this.__decodeSuccess.bind(this))(buffer, sample_lengths); }).bind(this),
                         this.__decodeError.bind(this)
                     );
                 }
