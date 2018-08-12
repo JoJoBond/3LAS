@@ -37,15 +37,15 @@ function PCMAudioPlayer ()
 
 PCMAudioPlayer.prototype._VariSpeed = false;
 
-PCMAudioPlayer.prototype._StartOffset = 0.4;
+PCMAudioPlayer.prototype._StartOffset = 0.33;
 
 
 // Constants:
 // ==========
 
-// Crystal oscillator have a variance of about +/- 100ppm
-// So worst case would be a difference of 200ppm between two oscillators.
-PCMAudioPlayer.prototype._SpeedCorrectionParameter = 200 / 1.0e6;
+// Crystal oscillator have a variance of about +/- 20ppm
+// So worst case would be a difference of 40ppm between two oscillators.
+PCMAudioPlayer.prototype._SpeedCorrectionParameter = 40 / 1.0e6;
 
 PCMAudioPlayer.prototype._OffsetVariance = 0.2;
 
@@ -118,78 +118,89 @@ PCMAudioPlayer.prototype.CreateBuffer = function (numberOfChannels, length, samp
 
 // Recieves an audiobuffer and schedules it for seamless playback
 PCMAudioPlayer.prototype.PushBuffer = function (AudioBuffer) {
-    // Create new audio source for the buffer
-    var SourceNode = this._SoundContext.createBufferSource();
-
-    // Make sure the node deletes itself after playback
-    SourceNode.onended = function () {
-        var ThisNode = SourceNode;
-        ThisNode.disconnect();
-        ThisNode = null;
-    };
-
-    // Prevent looping (the standard says that it should be off by default)
-    SourceNode.loop = false;
-
-    // Pass audio data to source
-    SourceNode.buffer = AudioBuffer;
-
-    //Connect the source to the gain node
-    SourceNode.connect(this._GainNode);
 
     // Check if this is the first buffer we received
     if (this._NextTime == 0.0) {
         // Start playing [StartOffset] s from now
         this._NextTime = this._SoundContext.currentTime + this._StartOffset;
     }
+    
+    // Before creating a buffer and scheduling playback, check if playing this buffer makes sense at all
+    // If a buffer should have been started so far in the past that it would have finished playing by now, we are better of skipping it.
+    // But we still need to move the time forward to keep future timings right.
+    if (this._NextTime + AudioBuffer.duration > this._SoundContext.currentTime) {
 
-    if (this._VariSpeed) {
-        // Check if we are to far or too close to target schedule time
-        if (this._NextTime - this._SoundContext.currentTime > this._OffsetMax) {
-            if (this._Speed < 1.0 + this._SpeedCorrectionParameter) {
-                // We are too slow, speed up playback (somewhat noticeable)
+        var OffsetTime;
 
-                console.log("speed up");
-                this._Speed = 1.0 + this._SpeedCorrectionParameter;
-            }
-        }
-        else if (this._NextTime - this._SoundContext.currentTime < this._OffsetMin) {
-            if (this._Speed > 1.0 - this._SpeedCorrectionParameter) {
-                // We are too fast, slow down playback (somewhat noticeable)
-
-                console.log("speed down");
-                this._Speed = 1.0 - this._SpeedCorrectionParameter;
-            }
-
-            // Check if we ran out of time
-            if (this._NextTime <= this._SoundContext.currentTime) {
-                if (this._NextTime + AudioBuffer.duration < this._SoundContext.currentTime) {
-                    //this._NextTime += AudioBuffer.duration * 1.01;
-                    //return;
-                }
-                // In that case reschedule the playback to [StartOffset]/2.0 s from now
-                //this._NextTime = this._SoundContext.currentTime;// + StartOffset / 2.0;
-                //if (typeof this._UnderrunCallback === 'function')
-                //	this._UnderrunCallback();
-            }
+        // If the playback start time is in the past but the playback end time is in the future, we need to partially play the buffer.
+        if (this._SoundContext.currentTime >= this._NextTime) {
+            // Calculate the time we need to skip
+            OffsetTime = this._SoundContext.currentTime - this._NextTime + 0.1;
         }
         else {
-            // Check if we are in time		
-            if ((this._Speed > 1.0 && (this._NextTime - this._SoundContext.currentTime < this._StartOffset)) ||
-                (this._Speed < 1.0 && (this._NextTime - this._SoundContext.currentTime > this._StartOffset))) {
-                // We within our min/max offset, set playpacks to default
-                this._Speed = 1.0;
-                console.log("normal speed");
-            }
+            // No skipping needed
+            OffsetTime = 0.0;
         }
 
-        // Set playback speed
-        SourceNode.playbackRate.value = this._Speed;
-    }
+        // Check if we'd skip the whole buffer anyway
+        if (OffsetTime < AudioBuffer.duration) {
 
-    // Schedule playback
-    SourceNode.start(this._NextTime);
-    //SourceNode.start();
+            // Create new audio source for the buffer
+            var SourceNode = this._SoundContext.createBufferSource();
+
+            // Make sure the node deletes itself after playback
+            SourceNode.onended = function () {
+                var ThisNode = SourceNode;
+                ThisNode.disconnect();
+                ThisNode = null;
+            };
+
+            // Prevent looping (the standard says that it should be off by default)
+            SourceNode.loop = false;
+
+            // Pass audio data to source
+            SourceNode.buffer = AudioBuffer;
+
+            //Connect the source to the gain node
+            SourceNode.connect(this._GainNode);
+
+            if (this._VariSpeed) {
+                // Check if we are to far or too close to target schedule time
+                if (this._NextTime - this._SoundContext.currentTime > this._OffsetMax) {
+                    if (this._Speed < 1.0 + this._SpeedCorrectionParameter) {
+                        // We are too slow, speed up playback (somewhat noticeable)
+
+                        console.log("speed up");
+                        this._Speed = 1.0 + this._SpeedCorrectionParameter;
+                    }
+                }
+                else if (this._NextTime - this._SoundContext.currentTime < this._OffsetMin) {
+                    if (this._Speed > 1.0 - this._SpeedCorrectionParameter) {
+                        // We are too fast, slow down playback (somewhat noticeable)
+
+                        console.log("speed down");
+                        this._Speed = 1.0 - this._SpeedCorrectionParameter;
+                    }
+                }
+                else {
+                    // Check if we are in time		
+                    if ((this._Speed > 1.0 && (this._NextTime - this._SoundContext.currentTime < this._StartOffset)) ||
+                        (this._Speed < 1.0 && (this._NextTime - this._SoundContext.currentTime > this._StartOffset))) {
+                        // We are within our min/max offset, set playpacks to default
+
+                        console.log("normal speed");
+                        this._Speed = 1.0;
+                    }
+                }
+
+                // Set playback speed
+                SourceNode.playbackRate.value = this._Speed;
+            }
+
+            // Schedule playback
+            SourceNode.start(this._NextTime + OffsetTime, OffsetTime);
+        }
+    }
 
     // Move time forward
     if (!this._VariSpeed || this._Speed == 1.0) {

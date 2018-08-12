@@ -305,7 +305,7 @@ AudioFormatReader_WAV.prototype.__decodeSuccess = function (buffer) {
 
     this._SampleBudget += (PickSize - Math.ceil(PickSize));
 
-    var PickSize = Math.ceil(PickSize);
+    PickSize = Math.ceil(PickSize);
 
     var PickOffset = (buffer.length - PickSize) / 2.0;
 
