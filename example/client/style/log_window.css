@@ -1,0 +1,66 @@
+p#logwindowbutton
+{
+	cursor: pointer;
+	font-size: 8pt;
+	-webkit-border-top-left-radius: 2pt;
+	    -moz-border-radius-topleft: 2pt;
+	      -o-border-radius-topleft: 2pt;
+	        border-top-left-radius: 2pt;
+	
+	-webkit-border-top-right-radius: 2pt;
+	    -moz-border-radius-topright: 2pt;
+	      -o-border-radius-topright: 2pt;
+	        border-top-right-radius: 2pt;
+
+	-webkit-border-bottom-right-radius: 2pt;
+	    -moz-border-radius-bottomright: 2pt;
+	      -o-border-radius-bottomright: 2pt;
+	        border-bottom-right-radius: 2pt;
+
+	-webkit-border-bottom-left-radius: 2pt;
+	    -moz-border-radius-bottomleft: 2pt;
+	      -o-border-radius-bottomleft: 2pt;
+	        border-bottom-left-radius: 2pt;
+	background: #111111;
+	color: #F0F0E1;
+	padding: 2pt;
+	width: 90pt;
+	
+	border: 1pt solid #777777;
+}
+
+ul#logwindow
+{
+	font-family: monospace;
+	font-size: 8pt;
+	display: none;
+	-webkit-border-top-left-radius: 2pt;
+	    -moz-border-radius-topleft: 2pt;
+	      -o-border-radius-topleft: 2pt;
+	        border-top-left-radius: 2pt;
+	
+	-webkit-border-top-right-radius: 2pt;
+	    -moz-border-radius-topright: 2pt;
+	      -o-border-radius-topright: 2pt;
+	        border-top-right-radius: 2pt;
+
+	-webkit-border-bottom-right-radius: 2pt;
+	    -moz-border-radius-bottomright: 2pt;
+	      -o-border-radius-bottomright: 2pt;
+	        border-bottom-right-radius: 2pt;
+
+	-webkit-border-bottom-left-radius: 2pt;
+	    -moz-border-radius-bottomleft: 2pt;
+	      -o-border-radius-bottomleft: 2pt;
+	        border-bottom-left-radius: 2pt;
+	background: #CCCCCC;
+	padding: 2pt;
+	
+	border: 1pt solid #EEEEEE;
+}
+
+ul#logwindow li
+{
+	margin: 0;
+	padding: 0;
+}

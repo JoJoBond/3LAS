@@ -1,0 +1,6 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='15' height='30' viewBox='0 0 5 10'>
+	<rect width='110%' x='-5%' y='-5%' height='110%' fill='#82c866'/>
+	<line x1='-2' y1='1' x2='7' y2='10' stroke='#51a646' stroke-width='2'/>
+	<line x1='-2' y1='6' x2='7' y2='15' stroke='#51a646' stroke-width='2'/>
+	<line x1='-2' y1='-4' x2='7' y2='5' stroke='#51a646' stroke-width='2'/>
+</svg>

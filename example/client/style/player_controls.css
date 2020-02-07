@@ -1,0 +1,274 @@
+div#audioplayer
+{
+	position: relative;
+	width: 180pt;
+	height: 100pt;
+	
+	background: #4c4e5a;
+	background: -moz-linear-gradient(top,  #4c4e5a 0%, #2c2d33 100%);
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#4c4e5a), color-stop(100%,#2c2d33));
+	background: -webkit-linear-gradient(top,  #4c4e5a 0%,#2c2d33 100%);
+	background: -o-linear-gradient(top,  #4c4e5a 0%,#2c2d33 100%);
+	background: -ms-linear-gradient(top,  #4c4e5a 0%,#2c2d33 100%);
+	background: linear-gradient(to bottom,  #4c4e5a 0%,#2c2d33 100%);
+	
+	-webkit-border-top-left-radius: 2pt;
+	    -moz-border-radius-topleft: 2pt;
+	      -o-border-radius-topleft: 2pt;
+	        border-top-left-radius: 2pt;
+	
+	-webkit-border-top-right-radius: 2pt;
+	    -moz-border-radius-topright: 2pt;
+	      -o-border-radius-topright: 2pt;
+	        border-top-right-radius: 2pt;
+
+	-webkit-border-bottom-right-radius: 2pt;
+	    -moz-border-radius-bottomright: 2pt;
+	      -o-border-radius-bottomright: 2pt;
+	        border-bottom-right-radius: 2pt;
+
+	-webkit-border-bottom-left-radius: 2pt;
+	    -moz-border-radius-bottomleft: 2pt;
+	      -o-border-radius-bottomleft: 2pt;
+			border-bottom-left-radius: 2pt;
+			
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	    -ms-user-select: none;
+		    user-select: none;
+}
+
+div#audioplayer div#volumebar
+{
+	position: absolute;
+	visibility: hidden;
+	top: 65pt;
+	left: 15pt;
+	width: 150pt;
+	height: 20pt;
+}
+
+div#audioplayer div#activityindicator
+{
+	position: absolute;
+	top: 5pt;
+	left: 5pt;
+	width: 20pt;
+	height: 20pt;
+	-webkit-border-top-left-radius: 10pt;
+	    -moz-border-radius-topleft: 10pt;
+	      -o-border-radius-topleft: 10pt;
+	        border-top-left-radius: 10pt;
+	
+	-webkit-border-top-right-radius: 10pt;
+	    -moz-border-radius-topright: 10pt;
+	      -o-border-radius-topright: 10pt;
+	        border-top-right-radius: 10pt;
+
+	-webkit-border-bottom-right-radius: 10pt;
+	    -moz-border-radius-bottomright: 10pt;
+	      -o-border-radius-bottomright: 10pt;
+	        border-bottom-right-radius: 10pt;
+
+	-webkit-border-bottom-left-radius: 10pt;
+	    -moz-border-radius-bottomleft: 10pt;
+	      -o-border-radius-bottomleft: 10pt;
+	        border-bottom-left-radius: 10pt;
+	
+		
+	-webkit-box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3) inset, 1px 1px 1px rgba(255, 255, 255, 0.25);
+	   -moz-box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3) inset, 1px 1px 1px rgba(255, 255, 255, 0.25);
+	     -o-box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3) inset, 1px 1px 1px rgba(255, 255, 255, 0.25);
+	        box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3) inset, 1px 1px 1px rgba(255, 255, 255, 0.25);
+
+}
+
+div#audioplayer div#activityindicator div#redlighton
+{
+	position: absolute;
+	visibility: hidden;
+	top: 1pt;
+	left: 1pt;
+	width: 19pt;
+	height: 19pt;
+	background-image: url(../img/red_light_on.svg);
+	-webkit-background-size: 100% 100%;
+       -moz-background-size: 100% 100%;
+         -o-background-size: 100% 100%;
+            background-size: 100% 100%;
+}
+
+div#audioplayer div#activityindicator div#redlightoff
+{
+	position: absolute;
+	top: 1pt;
+	left: 1pt;
+	width: 19pt;
+	height: 19pt;
+	background-image: url(../img/red_light_off.svg);
+	-webkit-background-size: 100% 100%;
+       -moz-background-size: 100% 100%;
+         -o-background-size: 100% 100%;
+            background-size: 100% 100%;
+}
+
+div#audioplayer div#volumebar *
+{
+	margin: 0px;
+    padding: 0px;
+    border: medium none;
+    outline: medium none;
+}
+
+div#audioplayer div#volumebar div#totalvolume
+{
+	position: absolute;
+	top: 3pt;
+	left: 0;
+	width: 100%;
+	height: 14pt;
+	
+	
+	-webkit-box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3) inset, 1px 1px 1px rgba(255, 255, 255, 0.25);
+	   -moz-box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3) inset, 1px 1px 1px rgba(255, 255, 255, 0.25);
+	     -o-box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3) inset, 1px 1px 1px rgba(255, 255, 255, 0.25);
+	        box-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3) inset, 1px 1px 1px rgba(255, 255, 255, 0.25);
+	
+    background: none repeat scroll 0% 0% rgb(33, 34, 39);
+
+	
+	-webkit-border-top-left-radius: 7pt;
+	    -moz-border-radius-topleft: 7pt;
+	      -o-border-radius-topleft: 7pt;
+	        border-top-left-radius: 7pt;
+	
+	-webkit-border-top-right-radius: 7pt;
+	    -moz-border-radius-topright: 7pt;
+	      -o-border-radius-topright: 7pt;
+	        border-top-right-radius: 7pt;
+
+	-webkit-border-bottom-right-radius: 7pt;
+	    -moz-border-radius-bottomright: 7pt;
+	      -o-border-radius-bottomright: 7pt;
+	        border-bottom-right-radius: 7pt;
+
+	-webkit-border-bottom-left-radius: 7pt;
+	    -moz-border-radius-bottomleft: 7pt;
+	      -o-border-radius-bottomleft: 7pt;
+	        border-bottom-left-radius: 7pt;
+}
+
+div#audioplayer div#volumebar div#currentvolume
+{
+	position: absolute;
+	top: 4pt;
+	left: 1pt;
+	width: 75pt;
+	height: 12pt;
+	background-image: url(../img/bar.svg);
+	-webkit-border-top-left-radius: 6pt;
+	    -moz-border-radius-topleft: 6pt;
+	      -o-border-radius-topleft: 6pt;
+	        border-top-left-radius: 6pt;
+	-webkit-border-bottom-left-radius: 6pt;
+	    -moz-border-radius-bottomleft: 6pt;
+	      -o-border-radius-bottomleft: 6pt;
+	        border-bottom-left-radius: 6pt;
+}
+
+div#audioplayer div#volumebar div#volumeknob
+{
+	position: absolute;
+	cursor: pointer;
+	top: 0;
+	left: 75pt;
+	width: 20pt;
+	height: 20pt;
+	background-image: url(../img/knob.svg);
+	-webkit-background-size: 100% 100%;
+       -moz-background-size: 100% 100%;
+         -o-background-size: 100% 100%;
+			background-size: 100% 100%;
+	margin-left: -10pt;
+}
+
+div#audioplayer div#playbuttonoverlay *
+{
+    margin: 0px;
+    padding: 0px;
+    border: medium none;
+    outline: medium none;
+}
+
+div#audioplayer div#playbuttonoverlay
+{
+	position: absolute;
+	top: 15pt;
+	left: 15pt;
+	width: 150pt;
+	height: 70pt;
+}
+
+div#audioplayer div#playbuttonoverlay div#playbutton
+{
+	position: absolute;
+	cursor: pointer;
+	top: 0pt;
+	left: 40pt;
+	width: 70pt;
+	height: 70pt;
+	background-image: url(../img/play.svg);
+	-webkit-background-size: 100% 100%;
+       -moz-background-size: 100% 100%;
+         -o-background-size: 100% 100%;
+            background-size: 100% 100%;
+}
+
+div#audioplayer div#controlbar *
+{
+    margin: 0px;
+    padding: 0px;
+    border: medium none;
+    outline: medium none;
+}
+
+div#audioplayer div#controlbar
+{
+	position: absolute;
+	visibility: hidden;
+	top: 15pt;
+	left: 15pt;
+	width: 150pt;
+	height: 50pt;
+}
+
+div#audioplayer div#controlbar div#mutebutton
+{
+	position: absolute;
+	cursor: pointer;
+	top: 0pt;
+	left: 51.5pt;
+	width: 47pt;
+	height: 40pt;
+	background-image: url(../img/mute.svg);
+	-webkit-background-size: 100% 100%;
+       -moz-background-size: 100% 100%;
+         -o-background-size: 100% 100%;
+            background-size: 100% 100%;
+}
+
+div#audioplayer div#controlbar div#unmutebutton
+{
+	visibility: hidden;
+	position: absolute;
+	cursor: pointer;
+	top: 0pt;
+	left: 51.5pt;
+	width: 47pt;
+	height: 40pt;
+	background-image: url(../img/unmute.svg);
+	-webkit-background-size: 100% 100%;
+       -moz-background-size: 100% 100%;
+         -o-background-size: 100% 100%;
+            background-size: 100% 100%;
+}

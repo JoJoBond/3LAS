@@ -1,0 +1,104 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0">
+		<meta name="apple-mobile-web-app-title" content="3LAS (Low Latency Live Audio Streaming)">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black">
+		<meta name="format-detection" content="telephone=no">
+
+		<title>3LAS (Low Latency Live Audio Streaming)</title>
+		
+		<script src="script/3las.helpers.js"></script>
+		<script src="script/3las.logging.js"></script>
+
+        <link rel="stylesheet" href="style/main.css">
+        <link rel="stylesheet" href="style/log_window.css">
+		<link rel="stylesheet" href="style/player_controls.css">
+		
+		<script src="script/3las.liveaudioplayer.js"></script>
+		<script src="script/3las.formatreader.js"></script>
+		<script src="script/formats/3las.formatreader.mpeg.js"></script>
+		<script src="script/formats/3las.formatreader.ogg.js"></script>
+		<script src="script/formats/3las.formatreader.wav.js"></script>
+		<script src="script/formats/3las.formatreader.pcm.js"></script>
+		<script src="script/3las.websocketclient.js"></script>
+		<script src="script/3las.js"></script>
+		<script src="script/main.js"></script>
+		<script>
+    		// Format settings, first entry has priority
+			var Formats = [
+				// Mp3 
+				{ "Mime": "audio/mpeg", "Port": 9601 },
+				// Wav 
+				{ "Mime": "audio/wav", "Port": 9602 },
+				// PCM
+				//{ "Mime": "audio/pcm;rate=16000;channels=1;bits=16", "Port": 9603 },
+				// Ogg vorbis (beta stage)
+				//{ "Mime": "audio/ogg; codecs=vorbis", "Port": 9604 },
+				// Ogg opus (alpha stage)
+				//{ "Mime": "audio/ogg; codecs=opus", "Port": 9604 },
+			];
+
+			// Bind init to page load see code in main.ts/main.js
+			window.addEventListener('load', Init, false);
+			document.ontouchmove  = function(e){ 
+				e.preventDefault(); 
+			}
+			
+			function hideChromeBanner ()
+			{
+				document.getElementById("chromesuggestion").style.display = "none";
+			}
+		</script> 
+	</head>
+	<body style="background:#000000;">
+		<div id="viewcontainer">
+			<div id="audioplayer">
+				<div id="playbuttonoverlay">
+					<div id="playbutton"></div>
+				</div>
+				<div id="activityindicator">
+					<div id="redlighton"></div>
+					<div id="redlightoff"></div>
+				</div>
+				<div id="controlbar">
+					<div id="mutebutton"></div>
+					<div id="unmutebutton"></div>
+				</div>
+				<div id="volumebar">
+					<div id="totalvolume"></div>
+					<div id="currentvolume"></div>
+					<div id="volumeknob"></div>
+				</div>
+			</div>
+				<p id="logwindowbutton">Show/Hide event log</p>
+				<ul id="logwindow"></ul>
+		</div>
+		<noscript>
+			<div class="errormessage">
+				<p>JavaScript not supported!</p>
+				<p>Please enable JavaScript.</p>
+				<p>Or try another browser.</p>
+			</div>
+		</noscript>
+		<div id="chromesuggestion">
+			<p>We recommend viewing this page with Google Chrome.</p>
+			<p><a href="http://itunes.apple.com/app/id535886823">Download Google Chrome</a></p>
+			<p><span onclick="hideChromeBanner();">Ignore and continue</span></p>
+		</div>
+		<div class="errormessage" id="typesunsupported" style="display: none;">
+			<p>None of the used datatypes are supported by your browser!</p>
+			<p>Please try another browser.</p>
+		</div>
+		<div class="errormessage" id="socketsunsupported" style="display: none;">
+			<p>Websockets are not supported by your browser!</p>
+			<p>Please try another browser.</p>
+		</div>
+		<div class="errormessage" id="webaudiounsupported" style="display: none;">
+			<p>The WebAudio API is not supported by your browser!</p>
+			<p>Please try another browser.</p>
+		</div>
+	</body>
+</html>

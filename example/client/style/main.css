@@ -1,0 +1,40 @@
+div#viewcontainer
+{
+	display: none;
+}
+
+div.errormessage
+{
+	position: absolute;
+	display: none;
+	width: 200pt;
+	height: 150pt;
+	left: 0pt;
+	top: 0pt;
+	font-family: sans-serif;
+	font-size: 20pt;
+	font-weight: 200;
+	color: #EE0000;
+	background-color: #000000;	
+}
+
+div#chromesuggestion
+{
+	position: absolute;
+	display: none;
+	width: 200pt;
+	height: 150pt;
+	left: 0pt;
+	top: 0pt;
+	font-family: sans-serif;
+	font-size: 15pt;
+	font-weight: 200;
+	color: #EEEEEE;
+	background-color: #000000;	
+}
+
+div#chromesuggestion a,span
+{
+	text-decoration: none;
+	color: #888888;
+}
