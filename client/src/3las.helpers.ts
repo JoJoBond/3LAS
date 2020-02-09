@@ -29,19 +29,19 @@ var OSName: string;
 
     isAndroid = (ua.match('android') ? true : false);
     isIOS = (ua.match(/(iphone|ipod)/g) ? true : false);
-    isIPadOS = (ua.match(/(ipad)/g) ? true : false);
+    isIPadOS = ((ua.match('ipad') || (navigator.platform == 'MacIntel' && navigator.maxTouchPoints > 1)) ? true : false);
     isWindows = (ua.match('windows') ? true : false);
     isLinux = (ua.match('android') ? false : (ua.match('linux') ? true : false));
     isBSD = (ua.match('bsd') ? true : false);
-    isMacOSX = (ua.match('mac osx') ? true : false);
+    isMacOSX = !isIOS && !isIPadOS && (ua.match('mac osx') ? true : false);
     
     isInternetExplorer = (ua.match('msie') ? true : false);
     isEdge = (ua.match('edg') ? true : false);
     isSafari = (ua.match(/(chromium|chrome|crios)/g) ? false : (ua.match('safari') ? true : false));
     isOpera = (ua.match('opera') ? true : false);
-    isChrome = (ua.match(/(chromium|chrome|crios)/g) ? true : false);
+    isChrome = !isSafari && (ua.match(/(chromium|chrome|crios)/g) ? true : false);
     isFirefox = (ua.match('like gecko') ? false : (ua.match(/(gecko|fennec|firefox)/g) ? true : false));
-    
+
     webkitVer = parseInt((/WebKit\/([0-9]+)/.exec(navigator.appVersion) || ["","0"])[1], 10) || void 0; // also match AppleWebKit
     isNativeChrome = isAndroid && webkitVer <= 537 && navigator.vendor.toLowerCase().indexOf('google') == 0;
     
