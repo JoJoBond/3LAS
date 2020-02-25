@@ -204,18 +204,26 @@ class _3LAS {
     
     private OnSocketConnect(): void
     {
+        this.StartFocusChecker();
+        
+        this.Logger.Log("Established connection with server.");
+
         if(this.SocketConnectivityCallback)
             this.SocketConnectivityCallback(true);
-        this.StartFocusChecker();
-        this.Logger.Log("Established connection with server.");
     }
     
     private OnSocketDisconnect(): void
     {
+        this.StopFocusChecker();
+        this.FormatReader.PurgeData();
+        this.Player.Reset();
+
+        this.Logger.Log("Lost connection to server.");
+
         if(this.SocketConnectivityCallback)
             this.SocketConnectivityCallback(false);
-        this.StopFocusChecker();
-        this.Logger.Log("Lost connection to server.");
+        
+        this.Start();
     }
     
     private PacketModCounter: number;
@@ -268,6 +276,4 @@ class _3LAS {
         }
         this.LastCheckTime = checkTime;
     }
-
-    
 }

@@ -230,7 +230,6 @@ var AudioFormatReader_MPEG = /** @class */ (function (_super) {
         calcTotalPlayTime += sampleCount[sampleCount.length - 1] / sampleRates[sampleCount.length - 1] / 2.0;
         // Calculate the expected number of samples
         var calcSampleCount = calcTotalPlayTime * decodedData.sampleRate;
-        //console.log(CalcTotalPlayTime, buffer.duration);
         var decoderOffset;
         // Check if we got the expected number of samples
         if (calcTotalPlayTime > decodedData.duration) {

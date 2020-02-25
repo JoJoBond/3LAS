@@ -173,4 +173,8 @@ class LiveAudioPlayer {
         // Move time forward
         this.NextScheduleTime += duration;
     }
+
+    public Reset(): void {
+        this.NextScheduleTime = 0.0;
+    }
 }

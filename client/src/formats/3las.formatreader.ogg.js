@@ -224,7 +224,7 @@ var AudioFormatReader_OGG = /** @class */ (function (_super) {
                     // Check if a package in the page will be continued in the next page
                     this.ContinuingPage = this.DataBuffer[this.PageStartIdx + 26 + page_segments] == 0xFF;
                     if (this.ContinuingPage)
-                        console.log("Continued ogg page found, check encoder settings.");
+                        this.Logger.Log("Continued ogg page found, check encoder settings.");
                     // Set end page boundry
                     this.PageEndIdx = this.PageStartIdx + 27 + page_segments + total_segments_size;
                 }

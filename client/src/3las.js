@@ -121,16 +121,19 @@ var _3LAS = /** @class */ (function () {
         this.Logger.Log("Network error: " + message);
     };
     _3LAS.prototype.OnSocketConnect = function () {
-        if (this.SocketConnectivityCallback)
-            this.SocketConnectivityCallback(true);
         this.StartFocusChecker();
         this.Logger.Log("Established connection with server.");
+        if (this.SocketConnectivityCallback)
+            this.SocketConnectivityCallback(true);
     };
     _3LAS.prototype.OnSocketDisconnect = function () {
+        this.StopFocusChecker();
+        this.FormatReader.PurgeData();
+        this.Player.Reset();
+        this.Logger.Log("Lost connection to server.");
         if (this.SocketConnectivityCallback)
             this.SocketConnectivityCallback(false);
-        this.StopFocusChecker();
-        this.Logger.Log("Lost connection to server.");
+        this.Start();
     };
     _3LAS.prototype.OnSocketDataReady = function (data) {
         this.PacketModCounter++;

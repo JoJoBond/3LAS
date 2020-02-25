@@ -361,8 +361,6 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
         // Calculate the expected number of samples
         let calcSampleCount: number = calcTotalPlayTime * decodedData.sampleRate;
 
-        //console.log(CalcTotalPlayTime, buffer.duration);
-
         let decoderOffset: number;
 
         // Check if we got the expected number of samples
