@@ -104,6 +104,7 @@ class _3LAS {
                 this.Audio,
                 this.Logger,
                 this.OnReaderError.bind(this),
+                this.Player.CheckBeforeDecode,
                 this.OnReaderDataReady.bind(this),
                 AudioFormatReader.DefaultSettings()
             );
@@ -215,7 +216,7 @@ class _3LAS {
     private OnSocketDisconnect(): void
     {
         this.StopFocusChecker();
-        this.FormatReader.PurgeData();
+        this.FormatReader.Reset();
         this.Player.Reset();
 
         this.Logger.Log("Lost connection to server.");

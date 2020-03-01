@@ -17,48 +17,17 @@ var __extends = (this && this.__extends) || (function () {
 })();
 var AudioFormatReader_PCM = /** @class */ (function (_super) {
     __extends(AudioFormatReader_PCM, _super);
-    function AudioFormatReader_PCM(audio, logger, errorCallback, dataReadyCallback, sampleRate, bitDepth, channels, batchSize) {
-        var _this = _super.call(this, audio, logger, errorCallback, dataReadyCallback) || this;
+    function AudioFormatReader_PCM(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, sampleRate, bitDepth, channels, batchSize) {
+        var _this = _super.call(this, audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback) || this;
         _this.SampleRate = sampleRate;
         _this.BitDepth = bitDepth;
         _this.Channels = channels;
         _this.BatchSize = batchSize;
         _this.BatchByteSize = _this.BatchSize * _this.Channels * Math.ceil(_this.BitDepth / 8);
         _this.Denominator = Math.pow(2, _this.BitDepth - 1);
-        _this.DataBuffer = new Uint8Array(0);
-        _this.FloatSamples = new Array();
         return _this;
     }
-    // Pushes int sample data into the buffer
-    AudioFormatReader_PCM.prototype.PushData = function (data) {
-        // Append data to pagedata buffer
-        this.DataBuffer = this.ConcatUint8Array(this.DataBuffer, data);
-        // Try to extract pages
-        this.ConvertSamples();
-    };
-    // Check if there are any samples ready for playback
-    AudioFormatReader_PCM.prototype.SamplesAvailable = function () {
-        return (this.FloatSamples.length > 0);
-    };
-    // Returns a bunch of samples for playback and removes the from the array
-    AudioFormatReader_PCM.prototype.PopSamples = function () {
-        if (this.FloatSamples.length > 0) {
-            // Get first bunch of samples, remove said bunch from the array and hand it back to callee
-            return this.FloatSamples.shift();
-        }
-        else
-            return null;
-    };
-    // Used to force sample extraction externaly
-    AudioFormatReader_PCM.prototype.Poke = function () {
-        this.ConvertSamples();
-    };
-    // Deletes all samples from the databuffer and the samplearray
-    AudioFormatReader_PCM.prototype.PurgeData = function () {
-        this.DataBuffer = new Uint8Array(0);
-        this.FloatSamples = new Array();
-    };
-    AudioFormatReader_PCM.prototype.ConvertSamples = function () {
+    AudioFormatReader_PCM.prototype.ExtractAll = function () {
         while (this.CanExtractSamples()) {
             var audioBuffer = this.Audio.createBuffer(this.Channels, this.BatchSize, this.SampleRate);
             var tmpSamples = this.ExtractPCMSamples();
@@ -117,7 +86,7 @@ var AudioFormatReader_PCM = /** @class */ (function (_super) {
                 return;
             }
             // Push samples into arrray
-            this.FloatSamples.push(audioBuffer);
+            this.Samples.push(audioBuffer);
             // Callback to tell that data is ready
             this.DataReadyCallback();
         }

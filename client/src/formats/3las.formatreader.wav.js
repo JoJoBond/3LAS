@@ -17,8 +17,8 @@ var __extends = (this && this.__extends) || (function () {
 })();
 var AudioFormatReader_WAV = /** @class */ (function (_super) {
     __extends(AudioFormatReader_WAV, _super);
-    function AudioFormatReader_WAV(audio, logger, errorCallback, dataReadyCallback, batchLength, extraEdgeLength) {
-        var _this = _super.call(this, audio, logger, errorCallback, dataReadyCallback) || this;
+    function AudioFormatReader_WAV(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, batchLength, extraEdgeLength) {
+        var _this = _super.call(this, audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback) || this;
         _this._OnDecodeSuccess = _this.OnDecodeSuccess.bind(_this);
         _this._OnDecodeError = _this.OnDecodeError.bind(_this);
         _this.BatchLength = batchLength;
@@ -30,49 +30,37 @@ var AudioFormatReader_WAV = /** @class */ (function (_super) {
         _this.WaveBytesPerSample = 0;
         _this.WaveBlockAlign = 0;
         _this.WaveChannels = 0;
-        _this.DataBuffer = new Uint8Array(0);
-        _this.FloatSamples = new Array();
-        _this.BufferStore = {};
         _this.BatchSamples = 0;
         _this.BatchBytes = 0;
         _this.ExtraEdgeSamples = 0;
         _this.TotalBatchSampleSize = 0;
         _this.TotalBatchByteSize = 0;
         _this.SampleBudget = 0;
-        _this.Id = 0;
-        _this.LastPushedId = -1;
         return _this;
     }
-    // Pushes int sample data into the buffer
-    AudioFormatReader_WAV.prototype.PushData = function (data) {
-        // Append data to pagedata buffer
-        this.DataBuffer = this.ConcatUint8Array(this.DataBuffer, data);
-        // Try to extract pages
-        this.ExtractAllIntSamples();
-    };
-    // Check if there are any samples ready for playback
-    AudioFormatReader_WAV.prototype.SamplesAvailable = function () {
-        return (this.FloatSamples.length > 0);
-    };
-    // Returns a bunch of samples for playback and removes the from the array
-    AudioFormatReader_WAV.prototype.PopSamples = function () {
-        if (this.FloatSamples.length > 0) {
-            // Get first bunch of samples, remove said bunch from the array and hand it back to callee
-            return this.FloatSamples.shift();
-        }
-        else
-            return null;
-    };
-    // Used to force sample extraction externaly
-    AudioFormatReader_WAV.prototype.Poke = function () {
-        this.ExtractAllIntSamples();
-    };
     // Deletes all samples from the databuffer and the samplearray
     AudioFormatReader_WAV.prototype.PurgeData = function () {
-        this.DataBuffer = new Uint8Array(0);
-        this.FloatSamples = new Array();
+        _super.prototype.PurgeData.call(this);
+        this.SampleBudget = 0;
     };
-    AudioFormatReader_WAV.prototype.ExtractAllIntSamples = function () {
+    // Deletes all data from the reader (deos effect headers, etc.)
+    AudioFormatReader_WAV.prototype.Reset = function () {
+        _super.prototype.Reset.call(this);
+        this.GotHeader = false;
+        this.RiffHeader = null;
+        this.WaveSampleRate = 0;
+        this.WaveBitsPerSample = 0;
+        this.WaveBytesPerSample = 0;
+        this.WaveBlockAlign = 0;
+        this.WaveChannels = 0;
+        this.BatchSamples = 0;
+        this.BatchBytes = 0;
+        this.ExtraEdgeSamples = 0;
+        this.TotalBatchSampleSize = 0;
+        this.TotalBatchByteSize = 0;
+        this.SampleBudget = 0;
+    };
+    AudioFormatReader_WAV.prototype.ExtractAll = function () {
         if (!this.GotHeader)
             this.FindAndExtractHeader();
         else {
@@ -220,23 +208,7 @@ var AudioFormatReader_WAV = /** @class */ (function (_super) {
         // Fill buffer with the last part of the decoded frame
         for (var i = 0; i < decodedData.numberOfChannels; i++)
             audioBuffer.getChannelData(i).set(decodedData.getChannelData(i).slice(pickOffset, -pickOffset));
-        if (this.LastPushedId + 1 == id) {
-            // Push samples into array
-            this.FloatSamples.push(audioBuffer);
-            this.LastPushedId++;
-            while (this.BufferStore[this.LastPushedId + 1]) {
-                // Push samples we decoded earlier in correct oder
-                this.FloatSamples.push(this.BufferStore[this.LastPushedId + 1]);
-                delete this.BufferStore[this.LastPushedId + 1];
-                this.LastPushedId++;
-            }
-            // Callback to tell that data is ready
-            this.DataReadyCallback();
-        }
-        else {
-            // Is out of order, will be pushed later
-            this.BufferStore[id] = audioBuffer;
-        }
+        this.OnDataReady(id, audioBuffer);
     };
     // Is called in case the decoding of the window fails
     AudioFormatReader_WAV.prototype.OnDecodeError = function (_error) {

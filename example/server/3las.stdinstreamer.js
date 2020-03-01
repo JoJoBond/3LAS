@@ -42,9 +42,7 @@ class StdInStreamer {
     }
     static Create(format, options) {
         if (format == "mpeg") {
-            if (!options["-burstsize"])
-                throw new Error("BurstSize undefined. Please use -burstsize to define the burst size.");
-            return new StdInStreamer_MPEG(options["-port"], options["-burstsize"]);
+            return new StdInStreamer_MPEG(options["-port"]);
         }
         else if (format == "wav") {
             if (!options["-chunksize"])
@@ -57,31 +55,32 @@ class StdInStreamer {
         else if (format == "ogg") {
             return new StdInStreamer_OGG(options["-port"]);
         }
+        else if (format == "aac") {
+            return new StdInStreamer_AAC(options["-port"]);
+        }
         else {
-            throw new Error("Invalid Type. Must be either mpeg, wav, pcm or ogg.");
+            throw new Error("Invalid Type. Must be either mpeg, aac, wav, pcm or ogg.");
         }
     }
 }
 class StdInStreamer_MPEG extends StdInStreamer {
-    constructor(port, burstSize) {
+    constructor(port) {
         super(port);
-        if (typeof burstSize !== "number" || burstSize !== Math.floor(burstSize) || burstSize < 0)
-            throw new Error("Invalid BurstSize. Must be natural number greater than or equal to 0.");
-        this.BurstSize = burstSize;
-        this.BurstBuffer = new Array();
     }
     OnStdInData(chunk) {
-        // Update burst data
-        if (this.BurstBuffer.length >= this.BurstSize)
-            this.BurstBuffer.shift();
-        this.BurstBuffer.push(chunk);
         this.Broadcast(chunk);
     }
-    OnServerConnection(socket, _request) {
-        let burstBuffer = this.BurstBuffer;
-        for (let i = 0; i < burstBuffer.length; i++) {
-            socket.send(burstBuffer[i], this.SendOptions);
-        }
+    OnServerConnection(_socket, _request) {
+    }
+}
+class StdInStreamer_AAC extends StdInStreamer {
+    constructor(port) {
+        super(port);
+    }
+    OnStdInData(chunk) {
+        this.Broadcast(chunk);
+    }
+    OnServerConnection(_socket, _request) {
     }
 }
 class StdInStreamer_WAV extends StdInStreamer {
@@ -126,7 +125,7 @@ class StdInStreamer_PCM extends StdInStreamer {
     OnStdInData(chunk) {
         this.Broadcast(chunk);
     }
-    OnServerConnection(socket, _request) {
+    OnServerConnection(_socket, _request) {
     }
 }
 class StdInStreamer_OGG extends StdInStreamer {
@@ -163,8 +162,7 @@ class StdInStreamer_OGG extends StdInStreamer {
 const OptionParser = {
     "-type": function (txt) { return txt; },
     "-port": function (txt) { return parseInt(txt, 10); },
-    "-chunksize": function (txt) { return parseInt(txt, 10); },
-    "-burstsize": function (txt) { return parseInt(txt, 10); }
+    "-chunksize": function (txt) { return parseInt(txt, 10); }
 };
 const Options = {};
 // Parse parameters
@@ -177,7 +175,7 @@ for (let i = 2; i < (process.argv.length - 1); i += 2) {
 }
 // Sanity check
 if (!Options["-type"])
-    throw new Error("Type undefined. Please use -type to define the datatype (mpeg, wav, pcm, ogg).");
+    throw new Error("Type undefined. Please use -type to define the datatype (mpeg, wav, aac, pcm, ogg).");
 const Streamer = StdInStreamer.Create(Options["-type"], Options);
 Streamer.Run();
 //# sourceMappingURL=3las.stdinstreamer.js.map

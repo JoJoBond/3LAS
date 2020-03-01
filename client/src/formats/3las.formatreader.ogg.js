@@ -36,8 +36,8 @@ var DecodeQueueItem = /** @class */ (function () {
 }());
 var AudioFormatReader_OGG = /** @class */ (function (_super) {
     __extends(AudioFormatReader_OGG, _super);
-    function AudioFormatReader_OGG(audio, logger, errorCallback, dataReadyCallback, windowSize) {
-        var _this = _super.call(this, audio, logger, errorCallback, dataReadyCallback) || this;
+    function AudioFormatReader_OGG(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, windowSize) {
+        var _this = _super.call(this, audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback) || this;
         _this._OnDecodeSuccess = _this.OnDecodeSuccess.bind(_this);
         _this._OnDecodeError = _this.OnDecodeError.bind(_this);
         _this.WindowSize = windowSize;
@@ -45,54 +45,39 @@ var AudioFormatReader_OGG = /** @class */ (function (_super) {
         _this.HeaderComplete = false;
         _this.IsOpus = false;
         _this.IsVorbis = false;
-        _this.DataBuffer = new Uint8Array(0);
         _this.Pages = new Array();
-        _this.Samples = new Array();
-        _this.BufferStore = {};
         _this.PageStartIdx = -1;
         _this.PageEndIdx = -1;
         _this.ContinuingPage = false;
         _this.IsHeader = false;
         _this.LastAGPosition = 0;
         _this.PageSampleLength = 0;
-        _this.Id = 0;
-        _this.LastPushedId = -1;
         return _this;
     }
-    // Pushes page data into the buffer
-    AudioFormatReader_OGG.prototype.PushData = function (data) {
-        // Append data to pagedata buffer
-        this.DataBuffer = this.ConcatUint8Array(this.DataBuffer, data);
-        // Try to extract pages
-        this.ExtractAllPages();
-    };
-    // Check if there are any samples ready for playback
-    AudioFormatReader_OGG.prototype.SamplesAvailable = function () {
-        return (this.Samples.length > 0);
-    };
-    // Returns a bunch of samples for playback and removes the from the array
-    AudioFormatReader_OGG.prototype.PopSamples = function () {
-        if (this.Samples.length > 0) {
-            // Get first bunch of samples, remove said bunch from the array and hand it back to callee
-            return this.Samples.shift();
-        }
-        else
-            return null;
-    };
-    // Used to force page extraction externaly
-    AudioFormatReader_OGG.prototype.Poke = function () {
-        this.ExtractAllPages();
-    };
     // Deletes all pages from the databuffer and page array and all samples from the samplearray
     AudioFormatReader_OGG.prototype.PurgeData = function () {
-        this.DataBuffer = new Uint8Array(0);
+        _super.prototype.PurgeData.call(this);
         this.Pages = new Array();
-        this.Samples = new Array();
         this.PageStartIdx = -1;
         this.PageEndIdx = -1;
     };
+    // Deletes all data from the reader (deos effect headers, etc.)
+    AudioFormatReader_OGG.prototype.Reset = function () {
+        _super.prototype.Reset.call(this);
+        this.FullVorbisHeader = new Uint8Array(0);
+        this.HeaderComplete = false;
+        this.IsOpus = false;
+        this.IsVorbis = false;
+        this.Pages = new Array();
+        this.PageStartIdx = -1;
+        this.PageEndIdx = -1;
+        this.ContinuingPage = false;
+        this.IsHeader = false;
+        this.LastAGPosition = 0;
+        this.PageSampleLength = 0;
+    };
     // Extracts all currently possible pages
-    AudioFormatReader_OGG.prototype.ExtractAllPages = function () {
+    AudioFormatReader_OGG.prototype.ExtractAll = function () {
         // Look for pages
         this.FindPage();
         var _loop_1 = function () {
@@ -235,7 +220,7 @@ var AudioFormatReader_OGG = /** @class */ (function (_super) {
     AudioFormatReader_OGG.prototype.CanExtractPage = function () {
         if (this.PageStartIdx < 0 || this.PageEndIdx < 0)
             return false;
-        else if (this.PageEndIdx < this.DataBuffer.length)
+        else if (this.PageEndIdx <= this.DataBuffer.length)
             return true;
         else
             return false;
@@ -275,23 +260,7 @@ var AudioFormatReader_OGG = /** @class */ (function (_super) {
             // For vorbis we just take the data
             audioBuffer = decodedData;
         }
-        if (this.LastPushedId + 1 == id) {
-            // Push samples into array
-            this.Samples.push(audioBuffer);
-            this.LastPushedId++;
-            while (this.BufferStore[this.LastPushedId + 1]) {
-                // Push samples we decoded earlier in correct oder
-                this.Samples.push(this.BufferStore[this.LastPushedId + 1]);
-                delete this.BufferStore[this.LastPushedId + 1];
-                this.LastPushedId++;
-            }
-            // Callback to tell that data is ready
-            this.DataReadyCallback();
-        }
-        else {
-            // Is out of order, will be pushed later
-            this.BufferStore[id] = audioBuffer;
-        }
+        this.OnDataReady(id, audioBuffer);
     };
     // Is called in case the decoding of the pages fails
     AudioFormatReader_OGG.prototype.OnDecodeError = function (_error) {

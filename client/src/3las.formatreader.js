@@ -3,35 +3,95 @@
     https://github.com/JoJoBond/3LAS
 */
 var AudioFormatReader = /** @class */ (function () {
-    function AudioFormatReader(audio, logger, errorCallback, dataReadyCallback) {
+    function AudioFormatReader(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback) {
         if (!audio)
             throw new Error('AudioFormatReader: audio must be specified');
         // Check callback argument
         if (typeof errorCallback !== 'function')
             throw new Error('AudioFormatReader: errorCallback must be specified');
+        if (typeof beforeDecodeCheck !== 'function')
+            throw new Error('AudioFormatReader: beforeDecodeCheck must be specified');
         if (typeof dataReadyCallback !== 'function')
             throw new Error('AudioFormatReader: dataReadyCallback must be specified');
         this.Audio = audio;
         this.Logger = logger;
         this.ErrorCallback = errorCallback;
+        this.BeforeDecodeCheck = beforeDecodeCheck;
         this.DataReadyCallback = dataReadyCallback;
+        this.Id = 0;
+        this.LastPushedId = -1;
+        this.Samples = new Array();
+        this.BufferStore = {};
+        this.DataBuffer = new Uint8Array(0);
     }
-    // Push data into reader
-    AudioFormatReader.prototype.PushData = function (_data) {
+    // Pushes frame data into the buffer
+    AudioFormatReader.prototype.PushData = function (data) {
+        // Append data to framedata buffer
+        this.DataBuffer = this.ConcatUint8Array(this.DataBuffer, data);
+        // Try to extract frames
+        this.ExtractAll();
     };
     // Check if samples are available
     AudioFormatReader.prototype.SamplesAvailable = function () {
-        return false;
+        return (this.Samples.length > 0);
     };
     // Get a single bunch of sampels from the reader
     AudioFormatReader.prototype.PopSamples = function () {
-        return null;
+        if (this.Samples.length > 0) {
+            // Get first bunch of samples, remove said bunch from the array and hand it back to callee
+            return this.Samples.shift();
+        }
+        else
+            return null;
     };
     // Deletes all encoded and decoded data from the reader (does not effect headers, etc.)
     AudioFormatReader.prototype.PurgeData = function () {
+        this.Id = 0;
+        this.LastPushedId = -1;
+        this.Samples = new Array();
+        this.BufferStore = {};
+        this.DataBuffer = new Uint8Array(0);
     };
-    // Force the reader to analyze his data
+    // Used to force frame extraction externaly
     AudioFormatReader.prototype.Poke = function () {
+        this.ExtractAll();
+    };
+    // Deletes all data from the reader (does effect headers, etc.)
+    AudioFormatReader.prototype.Reset = function () {
+        this.PurgeData();
+    };
+    // Extracts and converts the raw data 
+    AudioFormatReader.prototype.ExtractAll = function () {
+    };
+    // Checks if a decode makes sense
+    AudioFormatReader.prototype.OnBeforeDecode = function (id, duration) {
+        if (this.BeforeDecodeCheck(duration)) {
+            return true;
+        }
+        else {
+            this.OnDataReady(id, this.Audio.createBuffer(1, duration, this.Audio.sampleRate));
+            return false;
+        }
+    };
+    // Stores the converted bnuches of samples in right order
+    AudioFormatReader.prototype.OnDataReady = function (id, audioBuffer) {
+        if (this.LastPushedId + 1 == id) {
+            // Push samples into array
+            this.Samples.push(audioBuffer);
+            this.LastPushedId++;
+            while (this.BufferStore[this.LastPushedId + 1]) {
+                // Push samples we decoded earlier in correct order
+                this.Samples.push(this.BufferStore[this.LastPushedId + 1]);
+                delete this.BufferStore[this.LastPushedId + 1];
+                this.LastPushedId++;
+            }
+            // Callback to tell that data is ready
+            this.DataReadyCallback();
+        }
+        else {
+            // Is out of order, will be pushed later
+            this.BufferStore[id] = audioBuffer;
+        }
     };
     // Used to concatenate two Uint8Array (b comes BEHIND a)
     AudioFormatReader.prototype.ConcatUint8Array = function (a, b) {
@@ -45,15 +105,17 @@ var AudioFormatReader = /** @class */ (function () {
         var result = false;
         for (var i = 0; i < mimeTypes.length; i++) {
             var mimeType = mimeTypes[i];
-            if (mimeType.indexOf("audio/pcm") == 0)
-                mimeType = "audio/wav";
+            if (mimeType.indexOf("audio/pcm") == 0) {
+                result = true;
+                break;
+            }
             var answer = audioTag.canPlayType(mimeType);
             if (answer != "probably" && answer != "maybe")
                 continue;
             result = true;
-            audioTag = null;
             break;
         }
+        audioTag = null;
         return result;
     };
     AudioFormatReader.DefaultSettings = function () {
@@ -85,36 +147,26 @@ var AudioFormatReader = /** @class */ (function () {
             settings["wav"]["ExtraEdgeLength"] = 1 / 1000;
         // OGG
         settings["ogg"] = {};
-        // Number of pages to decode together
-        // For vorbis this must be greate than 1, I do not recommend to change this.
+        // Number of pages to decode together.
+        // For vorbis this must be greater than 1, I do not recommend to change this.
         settings["ogg"]["WindowSize"] = 2;
+        // AAC
+        settings["aac"] = {};
+        // Minimum number of frames to decode together
+        // Theoretical minimum is 2.
+        // Recommended value is 3 or higher.
+        settings["aac"]["MinDecodeFrames"] = 3;
         // MPEG
         settings["mpeg"] = {};
-        // Adds a minimal ID3v2 tag to each frame
-        settings["mpeg"]["AddID3Tag"] = true;
-        // Number of frames to decode together (keyword: byte-reservoir)
-        // For live streaming this means that you can push the minimum number of frames
-        // on connection to the client to reduce waiting time without effecting the latency.
-        if (isAndroid && isFirefox)
-            settings["mpeg"]["WindowSize"] = 50;
-        else if (isAndroid && isNativeChrome)
-            settings["mpeg"]["WindowSize"] = 30;
-        else if (isAndroid)
-            settings["mpeg"]["WindowSize"] = 30;
-        else
-            settings["mpeg"]["WindowSize"] = 25;
-        // Number of frames to use from one decoded window
-        if (isAndroid && isFirefox)
-            settings["mpeg"]["UseFrames"] = 40;
-        else if (isAndroid && isNativeChrome)
-            settings["mpeg"]["UseFrames"] = 20;
-        else if (isAndroid)
-            settings["mpeg"]["UseFrames"] = 5;
-        else
-            settings["mpeg"]["UseFrames"] = 2;
+        // Adds a minimal ID3v2 tag before decoding frames.
+        settings["mpeg"]["AddID3Tag"] = false;
+        // Minimum number of frames to decode together
+        // Theoretical minimum is 2.
+        // Recommended value is 3 or higher.
+        settings["mpeg"]["MinDecodeFrames"] = 3;
         return settings;
     };
-    AudioFormatReader.Create = function (mime, audio, logger, errorCallback, dataReadyCallback, settings) {
+    AudioFormatReader.Create = function (mime, audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, settings) {
         if (settings === void 0) { settings = null; }
         if (typeof mime !== "string")
             throw new Error('CreateAudioFormatReader: Invalid MIME-Type, must be string');
@@ -131,7 +183,7 @@ var AudioFormatReader = /** @class */ (function () {
             case "audio/mpa-robust":
                 if (!AudioFormatReader.CanDecodeTypes(new Array("audio/mpeg", "audio/MPA", "audio/mpa-robust")))
                     throw new Error('CreateAudioFormatReader: Browser can not decode specified MIME-Type (' + mime + ')');
-                return new AudioFormatReader_MPEG(audio, logger, errorCallback, dataReadyCallback, settings["mpeg"]["AddID3Tag"], settings["mpeg"]["WindowSize"], settings["mpeg"]["UseFrames"]);
+                return new AudioFormatReader_MPEG(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, settings["mpeg"]["AddID3Tag"], settings["mpeg"]["MinDecodeFrames"]);
                 break;
             // Ogg Vorbis
             case "application/ogg":
@@ -141,19 +193,15 @@ var AudioFormatReader = /** @class */ (function () {
             case "audio/vorbis-config":
                 if (!AudioFormatReader.CanDecodeTypes(new Array("audio/ogg; codecs=vorbis", "audio/vorbis")))
                     throw new Error('CreateAudioFormatReader: Browser can not decode specified MIME-Type (' + mime + ')');
-                return new AudioFormatReader_OGG(audio, logger, errorCallback, dataReadyCallback, settings["ogg"]["WindowSize"]);
+                return new AudioFormatReader_OGG(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, settings["ogg"]["WindowSize"]);
                 break;
             // Ogg Opus
             case "audio/opus":
             case "audio/ogg;codecs=opus":
                 if (!AudioFormatReader.CanDecodeTypes(new Array("audio/ogg; codecs=opus", "audio/opus")))
                     throw new Error('CreateAudioFormatReader: Browser can not decode specified MIME-Type (' + mime + ')');
-                return new AudioFormatReader_OGG(audio, logger, errorCallback, dataReadyCallback, settings["ogg"]["WindowSize"]);
+                return new AudioFormatReader_OGG(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, settings["ogg"]["WindowSize"]);
                 break;
-            /*
-            // ATM aac is only supported within a mp4-container, which is NOT streamable
-            // We could stream in ADTS and then pack chunks of the data into mp4.
-            // Not going to do that any soon, though.
             // Advanced Audio Coding
             case "audio/mp4":
             case "audio/aac":
@@ -162,12 +210,10 @@ var AudioFormatReader = /** @class */ (function () {
             case "audio/3gpp2":
             case "audio/MP4A-LATM":
             case "audio/mpeg4-generic":
-                if (!CanDecodeTypes(new Array("audio/mp4", "audio/aac", "audio/mpeg4-generic", "audio/3gpp", "audio/MP4A-LATM")))
-                    throw new Error('AudioFormatReader: Browser can not decode specified MIMI-Type (' + MIME + ')');
-                
-                MIMEReader = new AudioFormatReader_AAC(DataReadyCallback);
+                if (!AudioFormatReader.CanDecodeTypes(new Array("audio/mp4", "audio/aac", "audio/mpeg4-generic", "audio/3gpp", "audio/MP4A-LATM")))
+                    throw new Error('AudioFormatReader: Browser can not decode specified MIMI-Type (' + mime + ')');
+                return new AudioFormatReader_AAC(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, settings["aac"]["MinDecodeFrames"]);
                 break;
-            */
             // Waveform Audio File Format
             case "audio/vnd.wave":
             case "audio/wav":
@@ -175,12 +221,10 @@ var AudioFormatReader = /** @class */ (function () {
             case "audio/x-wav":
                 if (!AudioFormatReader.CanDecodeTypes(new Array("audio/wav", "audio/wave")))
                     throw new Error('CreateAudioFormatReader: Browser can not decode specified MIME-Type (' + mime + ')');
-                return new AudioFormatReader_WAV(audio, logger, errorCallback, dataReadyCallback, settings["wav"]["BatchLength"], settings["wav"]["ExtraEdgeLength"]);
+                return new AudioFormatReader_WAV(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, settings["wav"]["BatchLength"], settings["wav"]["ExtraEdgeLength"]);
                 break;
             // Waveform Audio File Format
             case "audio/pcm":
-                if (!AudioFormatReader.CanDecodeTypes(new Array("audio/wav", "audio/wave")))
-                    throw new Error('CreateAudioFormatReader: Browser can not decode specified MIME-Type (' + mime + ')');
                 {
                     var params = {};
                     {
@@ -206,7 +250,7 @@ var AudioFormatReader = /** @class */ (function () {
                     if (!bits) {
                         bits = 16;
                     }
-                    return new AudioFormatReader_PCM(audio, logger, errorCallback, dataReadyCallback, sampleRate, bits, channels, settings["pcm"]["BatchSize"]);
+                    return new AudioFormatReader_PCM(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, sampleRate, bits, channels, settings["pcm"]["BatchSize"]);
                 }
                 break;
             // Codecs below are not (yet) implemented

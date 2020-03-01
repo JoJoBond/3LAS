@@ -132,6 +132,11 @@ var LiveAudioPlayer = /** @class */ (function () {
     LiveAudioPlayer.prototype.Reset = function () {
         this.NextScheduleTime = 0.0;
     };
+    LiveAudioPlayer.prototype.CheckBeforeDecode = function (playbackLength) {
+        if (this.NextScheduleTime == 0)
+            return true;
+        return this.NextScheduleTime + playbackLength > this.Audio.currentTime;
+    };
     // Crystal oscillator have a variance of about +/- 20ppm
     // So worst case would be a difference of 40ppm between two oscillators.
     LiveAudioPlayer.SpeedCorrectionFactor = 40 / 1.0e6;

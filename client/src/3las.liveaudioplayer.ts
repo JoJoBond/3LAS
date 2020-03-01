@@ -177,4 +177,11 @@ class LiveAudioPlayer {
     public Reset(): void {
         this.NextScheduleTime = 0.0;
     }
+
+    public CheckBeforeDecode(playbackLength: number): boolean {
+        if(this.NextScheduleTime == 0)
+            return true;
+            
+        return this.NextScheduleTime + playbackLength > this.Audio.currentTime;
+    }
 }

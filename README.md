@@ -40,6 +40,7 @@ Notes
 Right now MP3, WAV and PCM work best on the client side.
 OGG vorbis good functionality (needs some more testing/work).
 OGG opus has rudimentary functionality (needs alot of work).
+AAC is in research.
 
 In general you would want to have multiple formats running in parallel, giving the client a broad choice.
 This is to give the client a fallback when it doesn't support the first format offered, since most browsers/os'ses/hardwares do not support all the formats.
@@ -49,14 +50,11 @@ Check the 'Formats' variable in the index.html to see how it works.
 
 Take a look into the shell script files to see how the servers work.
 
-The port is usually specified with the -port modifier.
-
-For MP3 the -burstsize modifier tells the server how many (old / past) MP3-Frames it should send to a newly connected client. This reduces the time it takes for the client to start playing, but may add latency!
-In general it should not be larger then the settings["mpeg"]["WindowSize"] value defined in the 'AudioFormatReader.DefaultSettings' method inside of client/script/3las.formatreader.js.
+The port is specified with the -port modifier.
 
 For WAV the -chucksize modifier tells the server how many PCM-encoded samples it sends in on package. This should be high enough to not cause a lot of network-overhead (keep in mind that WebSockets run over TCP/IP) but also low enough to not cause too much latency.
 
-OGG (vorbis and opus) have no special modifiers for now.
+PCM, AAC, MP3 and OGG (vorbis/opus) have no special modifiers for now.
 
 I'm probably missing a lot of important stuff, but I tried to comment the code at the key points so you have a good chance on figuring it out yourself.
 

@@ -25,112 +25,91 @@ var MPEGFrameInfo = /** @class */ (function () {
 }());
 var AudioFormatReader_MPEG = /** @class */ (function (_super) {
     __extends(AudioFormatReader_MPEG, _super);
-    function AudioFormatReader_MPEG(audio, logger, errorCallback, dataReadyCallback, addId3Tag, windowSize, useFrames) {
-        var _this = _super.call(this, audio, logger, errorCallback, dataReadyCallback) || this;
+    function AudioFormatReader_MPEG(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, addId3Tag, minDecodeFrames) {
+        var _this = _super.call(this, audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback) || this;
         _this._OnDecodeSuccess = _this.OnDecodeSuccess.bind(_this);
         _this._OnDecodeError = _this.OnDecodeError.bind(_this);
         _this.AddId3Tag = addId3Tag;
-        _this.WindowSize = windowSize;
-        _this.UseFrames = useFrames;
-        _this.DataBuffer = new Uint8Array(0);
+        _this.MinDecodeFrames = minDecodeFrames;
         _this.Frames = new Array();
-        _this.Samples = new Array();
-        _this.BufferStore = {};
         _this.FrameStartIdx = -1;
         _this.FrameEndIdx = -1;
         _this.FrameSamples = 0;
         _this.FrameSampleRate = 0;
         _this.TimeBudget = 0;
-        _this.Id = 0;
-        _this.LastPushedId = -1;
         return _this;
     }
-    // Pushes frame data into the buffer
-    AudioFormatReader_MPEG.prototype.PushData = function (data) {
-        // Append data to framedata buffer
-        this.DataBuffer = this.ConcatUint8Array(this.DataBuffer, data);
-        // Try to extract frames
-        this.ExtractAllFrames();
-    };
-    // Check if there are any samples ready for playback
-    AudioFormatReader_MPEG.prototype.SamplesAvailable = function () {
-        return (this.Samples.length > 0);
-    };
-    // Returns a bunch of samples for playback and removes the from the array
-    AudioFormatReader_MPEG.prototype.PopSamples = function () {
-        if (this.Samples.length > 0) {
-            // Get first bunch of samples, remove said bunch from the array and hand it back to callee
-            return this.Samples.shift();
-        }
-        else
-            return null;
-    };
-    // Used to force frame extraction externaly
-    AudioFormatReader_MPEG.prototype.Poke = function () {
-        this.ExtractAllFrames();
-    };
     // Deletes all frames from the databuffer and framearray and all samples from the samplearray
     AudioFormatReader_MPEG.prototype.PurgeData = function () {
-        this.DataBuffer = new Uint8Array(0);
+        _super.prototype.PurgeData.call(this);
         this.Frames = new Array();
-        this.Samples = new Array();
         this.FrameStartIdx = -1;
         this.FrameEndIdx = -1;
+        this.FrameSamples = 0;
+        this.FrameSampleRate = 0;
+        this.TimeBudget = 0;
     };
     // Extracts all currently possible frames
-    AudioFormatReader_MPEG.prototype.ExtractAllFrames = function () {
+    AudioFormatReader_MPEG.prototype.ExtractAll = function () {
         // Look for frames
         this.FindFrame();
-        var _loop_1 = function () {
-            // Extract frame and push into array
-            this_1.Frames.push(this_1.ExtractFrame());
-            // Check if we have enough frames to decode
-            if (this_1.Frames.length >= this_1.WindowSize) {
-                var sampleRates_1 = new Array();
-                var sampleCount_1 = new Array();
-                // Sum the lengths of the individuall frames
-                var bufferlength = 0;
-                for (var i = 0; i < this_1.WindowSize; i++) {
-                    sampleRates_1.push(this_1.Frames[i].SampleRate);
-                    sampleCount_1.push(this_1.Frames[i].SampleCount);
-                    bufferlength += this_1.Frames[i].Data.length;
-                }
-                // If needed, add some space for the ID3v2 tag
-                if (this_1.AddId3Tag)
-                    bufferlength += AudioFormatReader_MPEG.Id3v2Tag.length;
-                // Create a buffer long enough to hold everything
-                var windowbuffer = new Uint8Array(bufferlength);
-                var offset = 0;
-                // If needed, add ID3v2 tag to beginning of buffer
-                if (this_1.AddId3Tag) {
-                    windowbuffer.set(AudioFormatReader_MPEG.Id3v2Tag, offset);
-                    offset += AudioFormatReader_MPEG.Id3v2Tag.length;
-                }
-                // Add the frames to the window
-                for (var i = 0; i < this_1.WindowSize; i++) {
-                    windowbuffer.set(this_1.Frames[i].Data, offset);
-                    offset += this_1.Frames[i].Data.length;
-                }
-                // Remove the used frames from the array
-                for (var i = 0; i < (this_1.UseFrames - 1); i++)
-                    this_1.Frames.shift();
-                // Increment Id
-                var id_1 = this_1.Id++;
-                // Push window to the decoder
-                this_1.Audio.decodeAudioData(windowbuffer.buffer, (function (decodedData) {
-                    var _id = id_1;
-                    var _sampleRates = sampleRates_1;
-                    var _sampleCount = sampleCount_1;
-                    this._OnDecodeSuccess(decodedData, _id, _sampleRates, _sampleCount);
-                }).bind(this_1), this_1._OnDecodeError.bind(this_1));
-            }
-            // Look for frames
-            this_1.FindFrame();
-        };
-        var this_1 = this;
         // Repeat as long as we can extract frames
         while (this.CanExtractFrame()) {
-            _loop_1();
+            // Extract frame and push into array
+            this.Frames.push(this.ExtractFrame());
+            // Look for frames
+            this.FindFrame();
+        }
+        // Check if we have enough frames to decode
+        if (this.Frames.length >= this.MinDecodeFrames) {
+            // Note:
+            // =====
+            // mp3 frames have an overlap of [granule size] so we can't use the first or last [granule size] samples.
+            // [granule size] is equal to half of a [frame size] in samples (using the mp3's sample rate).
+            // Sum up the playback time of each decoded frame and data buffer lengths
+            // Note: Since mp3-Frames overlap by half of their sample-length we expect the
+            // first and last frame to be only half as long. Some decoders will still output
+            // the full frame length by adding zeros.
+            var bufferLength = 0;
+            var expectedTotalPlayTime_1 = 0;
+            expectedTotalPlayTime_1 += this.Frames[0].SampleCount / this.Frames[0].SampleRate / 2.0; // Only half of data is usable due to overlap
+            bufferLength += this.Frames[0].Data.length;
+            for (var i = 1; i < this.Frames.length - 1; i++) {
+                expectedTotalPlayTime_1 += this.Frames[i].SampleCount / this.Frames[i].SampleRate;
+                bufferLength += this.Frames[i].Data.length;
+            }
+            expectedTotalPlayTime_1 += this.Frames[this.Frames.length - 1].SampleCount / this.Frames[this.Frames.length - 1].SampleRate / 2.0; // Only half of data is usable due to overlap
+            bufferLength += this.Frames[this.Frames.length - 1].Data.length;
+            // If needed, add some space for the ID3v2 tag
+            if (this.AddId3Tag) {
+                bufferLength += AudioFormatReader_MPEG.Id3v2Tag.length;
+            }
+            // Create a buffer long enough to hold everything
+            var decodeBuffer = new Uint8Array(bufferLength);
+            var offset = 0;
+            // If needed, add ID3v2 tag to beginning of buffer
+            if (this.AddId3Tag) {
+                decodeBuffer.set(AudioFormatReader_MPEG.Id3v2Tag, offset);
+                offset += AudioFormatReader_MPEG.Id3v2Tag.length;
+            }
+            // Add the frames to the window
+            for (var i = 0; i < this.Frames.length; i++) {
+                decodeBuffer.set(this.Frames[i].Data, offset);
+                offset += this.Frames[i].Data.length;
+            }
+            // Remove the used frames from the array
+            this.Frames.splice(0, this.Frames.length - 1);
+            // Increment Id
+            var id_1 = this.Id++;
+            // Check if decoded frames might be too far back in the past
+            if (!this.OnBeforeDecode(id_1, expectedTotalPlayTime_1))
+                return;
+            // Push window to the decoder
+            this.Audio.decodeAudioData(decodeBuffer.buffer, (function (decodedData) {
+                var _id = id_1;
+                var _expectedTotalPlayTime = expectedTotalPlayTime_1;
+                this._OnDecodeSuccess(decodedData, _id, _expectedTotalPlayTime);
+            }).bind(this), this._OnDecodeError.bind(this));
         }
     };
     // Finds frame boundries within the data buffer
@@ -161,9 +140,9 @@ var AudioFormatReader_MPEG = /** @class */ (function (_super) {
                 // Padding? 0/1
                 var pad = (this.DataBuffer[this.FrameStartIdx + 2] & 0x02) >>> 1;
                 // Bitrate index
-                var brx = (this.DataBuffer[this.FrameStartIdx + 2] & 0xf0) >>> 4;
+                var brx = (this.DataBuffer[this.FrameStartIdx + 2] & 0xF0) >>> 4;
                 // SampRate index
-                var srx = (this.DataBuffer[this.FrameStartIdx + 2] & 0x0c) >>> 2;
+                var srx = (this.DataBuffer[this.FrameStartIdx + 2] & 0x0C) >>> 2;
                 // Resolve flags to real values
                 var bitrate = AudioFormatReader_MPEG.MPEG_bitrates[ver][lyr][brx] * 1000;
                 var samprate = AudioFormatReader_MPEG.MPEG_srates[ver][srx];
@@ -186,7 +165,7 @@ var AudioFormatReader_MPEG = /** @class */ (function (_super) {
     AudioFormatReader_MPEG.prototype.CanExtractFrame = function () {
         if (this.FrameStartIdx < 0 || this.FrameEndIdx < 0)
             return false;
-        else if (this.FrameEndIdx < this.DataBuffer.length)
+        else if (this.FrameEndIdx <= this.DataBuffer.length)
             return true;
         else
             return false;
@@ -194,7 +173,7 @@ var AudioFormatReader_MPEG = /** @class */ (function (_super) {
     // Extract a single frame from the buffer
     AudioFormatReader_MPEG.prototype.ExtractFrame = function () {
         // Extract frame data from buffer
-        var framearray = this.DataBuffer.buffer.slice(this.FrameStartIdx, this.FrameEndIdx);
+        var frameArray = this.DataBuffer.buffer.slice(this.FrameStartIdx, this.FrameEndIdx);
         // Remove frame from buffer
         if ((this.FrameEndIdx + 1) < this.DataBuffer.length)
             this.DataBuffer = new Uint8Array(this.DataBuffer.buffer.slice(this.FrameEndIdx));
@@ -203,95 +182,45 @@ var AudioFormatReader_MPEG = /** @class */ (function (_super) {
         // Reset Start/End indices
         this.FrameStartIdx = 0;
         this.FrameEndIdx = -1;
-        return new MPEGFrameInfo(new Uint8Array(framearray), this.FrameSamples, this.FrameSampleRate);
+        return new MPEGFrameInfo(new Uint8Array(frameArray), this.FrameSamples, this.FrameSampleRate);
     };
     // Is called if the decoding of the window succeeded
-    AudioFormatReader_MPEG.prototype.OnDecodeSuccess = function (decodedData, id, sampleRates, sampleCount) {
-        /*
-        // Get sample rate from first frame
-        var CalcSampleRate = SampleRates[0];
-        
-        // Sum up the sample count of each decoded frame
-        var CalcSampleCount = 0;
-        for (var i = 0; i < SampleCount.length; i++)
-            CalcSampleCount += SampleCount[i];
-        
-        // Calculate the expected number of samples
-        CalcSampleCount = Math.ceil(CalcSampleCount * buffer.sampleRate / CalcSampleRate);
-        */
-        // Sum up the playback time of each decoded frame
-        // Note: Since mp3-Frames overlap by half of their sample-length we expect the
-        // first and last frame to be only half as long. Some decoders will still output
-        // the full frame length by adding zeros.
-        var calcTotalPlayTime = 0;
-        calcTotalPlayTime += sampleCount[0] / sampleRates[0] / 2.0;
-        for (var i = 1; i < (sampleCount.length - 1); i++)
-            calcTotalPlayTime += sampleCount[i] / sampleRates[i];
-        calcTotalPlayTime += sampleCount[sampleCount.length - 1] / sampleRates[sampleCount.length - 1] / 2.0;
-        // Calculate the expected number of samples
-        var calcSampleCount = calcTotalPlayTime * decodedData.sampleRate;
-        var decoderOffset;
+    AudioFormatReader_MPEG.prototype.OnDecodeSuccess = function (decodedData, id, expectedTotalPlayTime) {
+        var extractSampleCount;
+        var extractSampleOffset;
         // Check if we got the expected number of samples
-        if (calcTotalPlayTime > decodedData.duration) {
+        if (expectedTotalPlayTime > decodedData.duration) {
             // We got less samples than expect, we suspect that they were truncated equally at start and end.
-            var offsetTime = (calcTotalPlayTime - decodedData.duration) / 2.0;
-            decoderOffset = Math.ceil(offsetTime * decodedData.sampleRate);
+            // This can happen in case of sample rate conversions.
+            extractSampleCount = decodedData.length;
+            extractSampleOffset = 0;
+            this.TimeBudget += (expectedTotalPlayTime - decodedData.duration);
         }
-        else if (calcTotalPlayTime < decodedData.duration) {
+        else if (expectedTotalPlayTime < decodedData.duration) {
             // We got more samples than expect, we suspect that zeros were added equally at start and end.
-            var offsetTime = (decodedData.duration - calcTotalPlayTime) / 2.0;
-            decoderOffset = -1.0 * Math.ceil(offsetTime * decodedData.sampleRate);
+            // This can happen in case of sample rate conversions or edge frame handling.
+            extractSampleCount = Math.ceil(expectedTotalPlayTime * decodedData.sampleRate);
+            var budgetSamples = this.TimeBudget * decodedData.sampleRate;
+            if (budgetSamples > 1.0) {
+                if (budgetSamples > decodedData.length - extractSampleCount) {
+                    budgetSamples = decodedData.length - extractSampleCount;
+                }
+                extractSampleCount += budgetSamples;
+                this.TimeBudget -= (budgetSamples / decodedData.sampleRate);
+            }
+            extractSampleOffset = Math.floor((decodedData.length - extractSampleCount) / 2);
         }
         else {
             // We got the expected number of samples, no adaption needed
-            decoderOffset = 0;
+            extractSampleCount = decodedData.length;
+            extractSampleOffset = 0;
         }
-        // Note:
-        // =====
-        //	mp3 frames have an overlap of [granule size] so we can't use the first or last [granule size] samples
-        // [granule size] is equal to half of a [frame size] in samples (using the mp3's sample rate)
-        // Calculate the size and offset of the frame to extract
-        //var OffsetRight = Math.ceil(Math.ceil(SampleCount[SampleCount.length - 1] / 2 * buffer.sampleRate / CalcSampleRate) * this._OffsetRightFactor);
-        var extractTimeSum = 0;
-        extractTimeSum += sampleCount[sampleCount.length - 1] / sampleRates[sampleCount.length - 1] / 2.0;
-        for (var i = 1; i < (this.UseFrames - 1); i++)
-            extractTimeSum += sampleCount[sampleCount.length - 1 - i] / sampleRates[sampleCount.length - 1 - i];
-        extractTimeSum += sampleCount[sampleCount.length - this.UseFrames] / sampleRates[sampleCount.length - this.UseFrames] / 2.0;
-        var extractSampleNum = extractTimeSum * decodedData.sampleRate;
-        this.TimeBudget += (extractSampleNum - Math.floor(extractSampleNum)) / decodedData.sampleRate;
-        var budgetSamples = 0;
-        if (this.TimeBudget * decodedData.sampleRate > 1.0) {
-            budgetSamples = Math.floor(this.TimeBudget * decodedData.sampleRate);
-            this.TimeBudget -= budgetSamples / decodedData.sampleRate;
-        }
-        else if (this.TimeBudget * decodedData.sampleRate < -1.0) {
-            budgetSamples = -1.0 * Math.floor(Math.abs(this.TimeBudget * decodedData.sampleRate));
-            this.TimeBudget -= budgetSamples / decodedData.sampleRate;
-        }
-        extractSampleNum = Math.floor(extractSampleNum) + budgetSamples;
-        var offsetRight = 0; //Math.ceil((SampleCount[SampleCount.length - 1] / SampleRates[SampleCount.length - 1] / 2.0) * buffer.sampleRate * this._OffsetRightFactor);
         // Create a buffer that can hold the frame to extract
-        var audioBuffer = this.Audio.createBuffer(decodedData.numberOfChannels, extractSampleNum, decodedData.sampleRate);
+        var audioBuffer = this.Audio.createBuffer(decodedData.numberOfChannels, extractSampleCount, decodedData.sampleRate);
         // Fill buffer with the last part of the decoded frame leave out last granule
         for (var i = 0; i < decodedData.numberOfChannels; i++)
-            audioBuffer.getChannelData(i).set(decodedData.getChannelData(i).subarray(decodedData.length - offsetRight + decoderOffset - extractSampleNum, decodedData.length - offsetRight + decoderOffset));
-        if (this.LastPushedId + 1 == id) {
-            // Push samples into array
-            this.Samples.push(audioBuffer);
-            this.LastPushedId++;
-            while (this.BufferStore[this.LastPushedId + 1]) {
-                // Push samples we decoded earlier in correct oder
-                this.Samples.push(this.BufferStore[this.LastPushedId + 1]);
-                delete this.BufferStore[this.LastPushedId + 1];
-                this.LastPushedId++;
-            }
-            // Callback to tell that data is ready
-            this.DataReadyCallback();
-        }
-        else {
-            // Is out of order, will be pushed later
-            this.BufferStore[id] = audioBuffer;
-        }
+            audioBuffer.getChannelData(i).set(decodedData.getChannelData(i).subarray(extractSampleOffset, extractSampleOffset + extractSampleCount));
+        this.OnDataReady(id, audioBuffer);
     };
     // Is called in case the decoding of the window fails
     AudioFormatReader_MPEG.prototype.OnDecodeError = function (_error) {

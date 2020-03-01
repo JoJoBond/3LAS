@@ -26,15 +26,6 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
     // Stores number of channels from RIFF header
     private WaveChannels: number;
     
-    // Data buffer for "raw" samples
-    private DataBuffer: Uint8Array;
-    
-    // Array for individual bunches of converted (float) samples
-    private FloatSamples: Array<AudioBuffer>;
-
-    // Storage for individual bunches of converted (float) samples that where decoded out of order
-    private BufferStore: Record<number, AudioBuffer>;
-    
     // Stores the actual size of each batch in samples
     private BatchSamples: number;
     
@@ -53,16 +44,10 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
     // Stores lost/missing samples over time to correct when a sample rate conversion is happening
     private SampleBudget: number;
 
-    // Unique ID for decoded buffers
-    private Id: number;
 
-    // ID of the last inserted float samples buffer
-    private LastPushedId: number;
-
-
-    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, dataReadyCallback: () => void, batchLength: number, extraEdgeLength: number)
+    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean,  dataReadyCallback: () => void, batchLength: number, extraEdgeLength: number)
     {
-        super(audio, logger, errorCallback, dataReadyCallback);
+        super(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback);
 
         this._OnDecodeSuccess = this.OnDecodeSuccess.bind(this);
         this._OnDecodeError = this.OnDecodeError.bind(this);
@@ -77,55 +62,41 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
         this.WaveBytesPerSample = 0;
         this.WaveBlockAlign = 0;
         this.WaveChannels = 0;
-        this.DataBuffer = new Uint8Array(0);
-        this.FloatSamples = new Array();
-        this.BufferStore = {};
         this.BatchSamples = 0;
         this.BatchBytes = 0;
         this.ExtraEdgeSamples = 0;
         this.TotalBatchSampleSize = 0;
         this.TotalBatchByteSize = 0;
         this.SampleBudget = 0;
-        this.Id = 0;
-        this.LastPushedId = -1;
-    }
-
-    // Pushes int sample data into the buffer
-    public PushData(data: Uint8Array): void {
-        // Append data to pagedata buffer
-        this.DataBuffer = this.ConcatUint8Array(this.DataBuffer, data);
-
-        // Try to extract pages
-        this.ExtractAllIntSamples();
-    }
-
-    // Check if there are any samples ready for playback
-    public SamplesAvailable(): boolean {
-        return (this.FloatSamples.length > 0);
-    }
-
-    // Returns a bunch of samples for playback and removes the from the array
-    public PopSamples(): AudioBuffer {
-        if (this.FloatSamples.length > 0) {
-            // Get first bunch of samples, remove said bunch from the array and hand it back to callee
-            return this.FloatSamples.shift();
-        }
-        else
-            return null;
-    }
-
-    // Used to force sample extraction externaly
-    public Poke(): void {
-        this.ExtractAllIntSamples();
     }
 
     // Deletes all samples from the databuffer and the samplearray
     public PurgeData(): void {
-        this.DataBuffer = new Uint8Array(0);
-        this.FloatSamples = new Array();
+        super.PurgeData();
+
+        this.SampleBudget = 0;
     }
 
-    private ExtractAllIntSamples(): void {
+    // Deletes all data from the reader (deos effect headers, etc.)
+    public Reset(): void {
+        super.Reset();
+
+        this.GotHeader = false;
+        this.RiffHeader = null;
+        this.WaveSampleRate = 0;
+        this.WaveBitsPerSample = 0;
+        this.WaveBytesPerSample = 0;
+        this.WaveBlockAlign = 0;
+        this.WaveChannels = 0;
+        this.BatchSamples = 0;
+        this.BatchBytes = 0;
+        this.ExtraEdgeSamples = 0;
+        this.TotalBatchSampleSize = 0;
+        this.TotalBatchByteSize = 0;
+        this.SampleBudget = 0;
+    }
+
+    protected ExtractAll(): void {
         if (!this.GotHeader)
             this.FindAndExtractHeader();
         else {
@@ -325,25 +296,7 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
         for (let i: number = 0; i < decodedData.numberOfChannels; i++)
             audioBuffer.getChannelData(i).set(decodedData.getChannelData(i).slice(pickOffset, -pickOffset));
 
-        if(this.LastPushedId + 1 == id) {
-            // Push samples into array
-            this.FloatSamples.push(audioBuffer);
-            this.LastPushedId++;
-
-            while(this.BufferStore[this.LastPushedId+1]) {
-                // Push samples we decoded earlier in correct oder
-                this.FloatSamples.push(this.BufferStore[this.LastPushedId+1]);
-                delete this.BufferStore[this.LastPushedId+1];
-                this.LastPushedId++;
-            }
-
-            // Callback to tell that data is ready
-            this.DataReadyCallback();
-        }
-        else {
-            // Is out of order, will be pushed later
-            this.BufferStore[id] = audioBuffer;
-        }
+        this.OnDataReady(id, audioBuffer);
     }
 
     private readonly _OnDecodeError: (error: DOMException) => void;

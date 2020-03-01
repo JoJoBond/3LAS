@@ -52,7 +52,7 @@ var _3LAS = /** @class */ (function () {
             throw new Error();
         }
         try {
-            this.FormatReader = AudioFormatReader.Create(this.SelectedMime, this.Audio, this.Logger, this.OnReaderError.bind(this), this.OnReaderDataReady.bind(this), AudioFormatReader.DefaultSettings());
+            this.FormatReader = AudioFormatReader.Create(this.SelectedMime, this.Audio, this.Logger, this.OnReaderError.bind(this), this.Player.CheckBeforeDecode, this.OnReaderDataReady.bind(this), AudioFormatReader.DefaultSettings());
             this.Logger.Log("Init of AudioFormatReader succeeded");
         }
         catch (e) {
@@ -128,7 +128,7 @@ var _3LAS = /** @class */ (function () {
     };
     _3LAS.prototype.OnSocketDisconnect = function () {
         this.StopFocusChecker();
-        this.FormatReader.PurgeData();
+        this.FormatReader.Reset();
         this.Player.Reset();
         this.Logger.Log("Lost connection to server.");
         if (this.SocketConnectivityCallback)

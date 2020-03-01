@@ -52,10 +52,7 @@ abstract class StdInStreamer {
     public static Create(format: string, options: Record<string, number>) {
         
         if (format == "mpeg") {
-            if (!options["-burstsize"])
-                throw new Error("BurstSize undefined. Please use -burstsize to define the burst size.");
-            
-            return new StdInStreamer_MPEG(options["-port"], options["-burstsize"]);
+            return new StdInStreamer_MPEG(options["-port"]);
         }
         else if (format == "wav") {
             if (!options["-chunksize"])
@@ -65,47 +62,42 @@ abstract class StdInStreamer {
         }
         else if (format == "pcm") {
             return new StdInStreamer_PCM(options["-port"]);
-
         }
         else if (format == "ogg") {
             return new StdInStreamer_OGG(options["-port"]);
         }
+        else if (format == "aac") {
+            return new StdInStreamer_AAC(options["-port"]);
+        }
         else {
-            throw new Error("Invalid Type. Must be either mpeg, wav, pcm or ogg.");
+            throw new Error("Invalid Type. Must be either mpeg, aac, wav, pcm or ogg.");
         }
     }
 }
 
 class StdInStreamer_MPEG extends StdInStreamer {
-    private readonly BurstSize: number;
-    private BurstBuffer: Array<Buffer>;
-
-    constructor(port: number, burstSize: number) {
+    constructor(port: number) {
         super(port);
-
-        if (typeof burstSize !== "number" || burstSize !== Math.floor(burstSize) || burstSize < 0)
-            throw new Error("Invalid BurstSize. Must be natural number greater than or equal to 0.");
-
-        this.BurstSize = burstSize;
-        this.BurstBuffer = new Array();
     }
 
     protected OnStdInData(chunk: Buffer): void {
-        // Update burst data
-        if (this.BurstBuffer.length >= this.BurstSize)
-            this.BurstBuffer.shift();
-    
-        this.BurstBuffer.push(chunk);
-    
         this.Broadcast(chunk);
     }
-    
-    protected OnServerConnection(socket: ws, _request: IncomingMessage): void {
-        let burstBuffer: Array<Buffer> = this.BurstBuffer;
-    
-        for (let i: number = 0; i < burstBuffer.length; i++) {
-            socket.send(burstBuffer[i], this.SendOptions);
-        }
+
+    protected OnServerConnection(_socket: ws, _request: IncomingMessage): void {
+    }
+}
+
+class StdInStreamer_AAC extends StdInStreamer {
+    constructor(port: number) {
+        super(port);
+    }
+
+    protected OnStdInData(chunk: Buffer): void {
+        this.Broadcast(chunk);
+    }
+
+    protected OnServerConnection(_socket: ws, _request: IncomingMessage): void {
     }
 }
 
@@ -167,7 +159,7 @@ class StdInStreamer_PCM extends StdInStreamer {
         this.Broadcast(chunk);
     }
 
-    protected OnServerConnection(socket: ws, _request: IncomingMessage): void {
+    protected OnServerConnection(_socket: ws, _request: IncomingMessage): void {
     }
 }
 
@@ -218,8 +210,7 @@ class StdInStreamer_OGG extends StdInStreamer {
 const OptionParser: Record<string,(txt: string) => (number| string)> = {
     "-type": function (txt: string) { return txt; }, 
     "-port": function (txt: string) { return parseInt(txt, 10); },
-    "-chunksize": function (txt: string) { return parseInt(txt, 10); },
-    "-burstsize": function (txt: string) { return parseInt(txt, 10); }
+    "-chunksize": function (txt: string) { return parseInt(txt, 10); }
 };
 
 const Options: Record<string, number| string> = {};
@@ -237,7 +228,7 @@ for (let i: number = 2; i < (process.argv.length - 1); i += 2) {
 
 // Sanity check
 if (!Options["-type"])
-    throw new Error("Type undefined. Please use -type to define the datatype (mpeg, wav, pcm, ogg).");
+    throw new Error("Type undefined. Please use -type to define the datatype (mpeg, wav, aac, pcm, ogg).");
 
 const Streamer: StdInStreamer = StdInStreamer.Create(<string>Options["-type"], <Record<string, number>>Options);
 Streamer.Run();

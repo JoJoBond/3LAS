@@ -38,19 +38,10 @@ class AudioFormatReader_OGG extends AudioFormatReader implements IAudioFormatRea
 	private HeaderComplete: boolean;
 	private IsOpus: boolean;
 	private IsVorbis: boolean;
-		
-	// Data buffer for "raw" pagedata
-	private DataBuffer: Uint8Array;
-	
+
 	// Array for individual pages
 	private Pages: Array<OGGPageInfo>;
 	
-	// Array for individual bunches of samples
-	private Samples: Array<AudioBuffer>;
-	
-    // Storage for individual bunches of decoded samples that where decoded out of order
-    private BufferStore: Record<number, AudioBuffer>;
-    
 	// Page related variables
 	private PageStartIdx: number;
 	private PageEndIdx: number;
@@ -59,15 +50,9 @@ class AudioFormatReader_OGG extends AudioFormatReader implements IAudioFormatRea
 	private LastAGPosition: number;
 	private PageSampleLength: number;
 
-    // Unique ID for decoded buffers
-    private Id: number;
-
-    // ID of the last inserted decoded samples buffer
-    private LastPushedId: number;
-
-    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, dataReadyCallback: () => void, windowSize: number)
+    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean,  dataReadyCallback: () => void, windowSize: number)
     {
-        super(audio, logger, errorCallback, dataReadyCallback);
+        super(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback);
 
         this._OnDecodeSuccess = this.OnDecodeSuccess.bind(this);
         this._OnDecodeError = this.OnDecodeError.bind(this);
@@ -78,62 +63,44 @@ class AudioFormatReader_OGG extends AudioFormatReader implements IAudioFormatRea
         this.HeaderComplete = false;
         this.IsOpus = false;
         this.IsVorbis = false;
-        this.DataBuffer = new Uint8Array(0);
         this.Pages = new Array();
-        this.Samples = new Array();
-        this.BufferStore = {};
         this.PageStartIdx = -1;
         this.PageEndIdx = -1;
         this.ContinuingPage = false;
         this.IsHeader = false;
         this.LastAGPosition = 0;
         this.PageSampleLength = 0;
-        this.Id = 0;
-        this.LastPushedId = -1;
-    }
-
-    // Pushes page data into the buffer
-    public PushData (data: Uint8Array): void {
-        // Append data to pagedata buffer
-        this.DataBuffer = this.ConcatUint8Array(this.DataBuffer, data);
-
-        // Try to extract pages
-        this.ExtractAllPages();
-    }
-
-    // Check if there are any samples ready for playback
-    public SamplesAvailable(): boolean {
-        return (this.Samples.length > 0);
-    }
-
-    // Returns a bunch of samples for playback and removes the from the array
-    public PopSamples(): AudioBuffer {
-        if (this.Samples.length > 0) {
-            // Get first bunch of samples, remove said bunch from the array and hand it back to callee
-            return this.Samples.shift();
-        }
-        else
-            return null;
-    }
-
-    // Used to force page extraction externaly
-    public Poke(): void {
-        this.ExtractAllPages();
     }
 
     // Deletes all pages from the databuffer and page array and all samples from the samplearray
     public PurgeData(): void {
-        this.DataBuffer = new Uint8Array(0);
+        super.PurgeData();
 
         this.Pages = new Array();
-        this.Samples = new Array();
 
         this.PageStartIdx = -1;
         this.PageEndIdx = -1;
     }
 
+    // Deletes all data from the reader (deos effect headers, etc.)
+    public Reset(): void {
+        super.Reset();
+
+        this.FullVorbisHeader = new Uint8Array(0);
+        this.HeaderComplete = false;
+        this.IsOpus = false;
+        this.IsVorbis = false;
+        this.Pages = new Array();
+        this.PageStartIdx = -1;
+        this.PageEndIdx = -1;
+        this.ContinuingPage = false;
+        this.IsHeader = false;
+        this.LastAGPosition = 0;
+        this.PageSampleLength = 0;
+    }
+
     // Extracts all currently possible pages
-    private ExtractAllPages(): void {
+    protected ExtractAll(): void {
         // Look for pages
         this.FindPage();
         // Repeat as long as we can extract pages
@@ -299,7 +266,7 @@ class AudioFormatReader_OGG extends AudioFormatReader implements IAudioFormatRea
     private CanExtractPage(): boolean {
         if (this.PageStartIdx < 0 || this.PageEndIdx < 0)
             return false;
-        else if (this.PageEndIdx < this.DataBuffer.length)
+        else if (this.PageEndIdx <= this.DataBuffer.length)
             return true;
         else
             return false;
@@ -352,25 +319,7 @@ class AudioFormatReader_OGG extends AudioFormatReader implements IAudioFormatRea
             audioBuffer = decodedData;
         }
 
-        if(this.LastPushedId + 1 == id) {
-            // Push samples into array
-            this.Samples.push(audioBuffer);
-            this.LastPushedId++;
-
-            while(this.BufferStore[this.LastPushedId+1]) {
-                // Push samples we decoded earlier in correct oder
-                this.Samples.push(this.BufferStore[this.LastPushedId+1]);
-                delete this.BufferStore[this.LastPushedId+1];
-                this.LastPushedId++;
-            }
-
-            // Callback to tell that data is ready
-            this.DataReadyCallback();
-        }
-        else {
-            // Is out of order, will be pushed later
-            this.BufferStore[id] = audioBuffer;
-        }
+        this.OnDataReady(id, audioBuffer);
     }
 
     private readonly _OnDecodeError: (error: DOMException) => void;

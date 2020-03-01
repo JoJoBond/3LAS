@@ -22,15 +22,9 @@ class AudioFormatReader_PCM extends AudioFormatReader implements IAudioFormatRea
     // Number of bytes to convert together
     private readonly BatchByteSize: number;
 
-    // Data buffer for "raw" samples
-    private DataBuffer: Uint8Array;
-
-    // Array for individual bunches of converted (float) samples
-    private FloatSamples: Array<AudioBuffer>;
-
-    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, dataReadyCallback: () => void, sampleRate: number, bitDepth: number, channels: number, batchSize: number)
+    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean,  dataReadyCallback: () => void, sampleRate: number, bitDepth: number, channels: number, batchSize: number)
     {
-        super(audio, logger, errorCallback, dataReadyCallback);
+        super(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback);
 
         this.SampleRate = sampleRate;
         this.BitDepth = bitDepth;
@@ -39,45 +33,9 @@ class AudioFormatReader_PCM extends AudioFormatReader implements IAudioFormatRea
         this.BatchByteSize = this.BatchSize * this.Channels * Math.ceil(this.BitDepth / 8 );
 
         this.Denominator = Math.pow(2, this.BitDepth - 1);
-        this.DataBuffer = new Uint8Array(0);
-        this.FloatSamples = new Array();
     }
 
-    // Pushes int sample data into the buffer
-    public PushData(data: Uint8Array): void {
-        // Append data to pagedata buffer
-        this.DataBuffer = this.ConcatUint8Array(this.DataBuffer, data);
-        // Try to extract pages
-        this.ConvertSamples();
-    }
-
-    // Check if there are any samples ready for playback
-    public SamplesAvailable(): boolean {
-        return (this.FloatSamples.length > 0);
-    }
-
-    // Returns a bunch of samples for playback and removes the from the array
-    public PopSamples(): AudioBuffer {
-        if (this.FloatSamples.length > 0) {
-            // Get first bunch of samples, remove said bunch from the array and hand it back to callee
-            return this.FloatSamples.shift();
-        }
-        else
-            return null;
-    }
-
-    // Used to force sample extraction externaly
-    public Poke(): void {
-        this.ConvertSamples();
-    }
-
-    // Deletes all samples from the databuffer and the samplearray
-    public PurgeData(): void {
-        this.DataBuffer = new Uint8Array(0);
-        this.FloatSamples = new Array();
-    }
-
-    private ConvertSamples(): void {
+    protected ExtractAll(): void {
         while (this.CanExtractSamples()) {
             let audioBuffer: AudioBuffer = this.Audio.createBuffer(this.Channels, this.BatchSize, this.SampleRate);
             let tmpSamples: Uint8Array = this.ExtractPCMSamples();
@@ -143,7 +101,7 @@ class AudioFormatReader_PCM extends AudioFormatReader implements IAudioFormatRea
             }
 
             // Push samples into arrray
-            this.FloatSamples.push(audioBuffer);
+            this.Samples.push(audioBuffer);
 
             // Callback to tell that data is ready
             this.DataReadyCallback();
