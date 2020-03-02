@@ -4,8 +4,8 @@
 */
 
 class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatReader {
-    private readonly BatchLength: number;
-    private readonly ExtraEdgeLength: number;
+    private readonly BatchDuration: number;
+    private readonly ExtraEdgeDuration: number;
 
     // Stores if we have a header already
     private GotHeader: boolean;
@@ -45,15 +45,15 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
     private SampleBudget: number;
 
 
-    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean,  dataReadyCallback: () => void, batchLength: number, extraEdgeLength: number)
+    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean,  dataReadyCallback: () => void, batchDuration: number, extraEdgeDuration: number)
     {
         super(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback);
 
         this._OnDecodeSuccess = this.OnDecodeSuccess.bind(this);
         this._OnDecodeError = this.OnDecodeError.bind(this);
 
-        this.BatchLength = batchLength;
-        this.ExtraEdgeLength = extraEdgeLength;
+        this.BatchDuration = batchDuration;
+        this.ExtraEdgeDuration = extraEdgeDuration;
             
         this.GotHeader = false;
         this.RiffHeader = null;
@@ -104,6 +104,12 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
                 // Extract samples
                 let tmpSamples: Uint8Array = this.ExtractIntSamples();
 
+                // Increment Id
+                let id = this.Id++;
+
+                if (!this.OnBeforeDecode(id, this.BatchDuration))
+                    continue;
+
                 // Note:
                 // =====
                 // When audio data is resampled we get edge-effects at beginnging and end.
@@ -127,9 +133,6 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
 
                 // Add samples
                 samplesBuffer.set(tmpSamples, offset);
-
-                // Increment Id
-                let id = this.Id++;
 
                 // Push pages to the decoder
                 this.Audio.decodeAudioData(samplesBuffer.buffer,
@@ -218,8 +221,8 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
 
         this.RiffHeader = new Uint8Array(this.DataBuffer.buffer.slice(0, curpos));
 
-        this.BatchSamples = Math.ceil(this.BatchLength * this.WaveSampleRate);
-        this.ExtraEdgeSamples = Math.ceil(this.ExtraEdgeLength * this.WaveSampleRate);
+        this.BatchSamples = Math.ceil(this.BatchDuration * this.WaveSampleRate);
+        this.ExtraEdgeSamples = Math.ceil(this.ExtraEdgeDuration * this.WaveSampleRate);
 
         this.BatchBytes = this.BatchSamples * this.WaveBlockAlign;
 
@@ -265,7 +268,7 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
     // Is called if the decoding of the samples succeeded
     private OnDecodeSuccess(decodedData: AudioBuffer, id: number): void {
         // Calculate the length of the parts
-        let pickSize: number = this.BatchLength * decodedData.sampleRate;
+        let pickSize: number = this.BatchDuration * decodedData.sampleRate;
 
         this.SampleBudget += (pickSize - Math.ceil(pickSize));
 

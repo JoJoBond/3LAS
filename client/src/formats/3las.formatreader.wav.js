@@ -17,12 +17,12 @@ var __extends = (this && this.__extends) || (function () {
 })();
 var AudioFormatReader_WAV = /** @class */ (function (_super) {
     __extends(AudioFormatReader_WAV, _super);
-    function AudioFormatReader_WAV(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, batchLength, extraEdgeLength) {
+    function AudioFormatReader_WAV(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, batchDuration, extraEdgeDuration) {
         var _this = _super.call(this, audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback) || this;
         _this._OnDecodeSuccess = _this.OnDecodeSuccess.bind(_this);
         _this._OnDecodeError = _this.OnDecodeError.bind(_this);
-        _this.BatchLength = batchLength;
-        _this.ExtraEdgeLength = extraEdgeLength;
+        _this.BatchDuration = batchDuration;
+        _this.ExtraEdgeDuration = extraEdgeDuration;
         _this.GotHeader = false;
         _this.RiffHeader = null;
         _this.WaveSampleRate = 0;
@@ -67,6 +67,10 @@ var AudioFormatReader_WAV = /** @class */ (function (_super) {
             var _loop_1 = function () {
                 // Extract samples
                 var tmpSamples = this_1.ExtractIntSamples();
+                // Increment Id
+                var id = this_1.Id++;
+                if (!this_1.OnBeforeDecode(id, this_1.BatchDuration))
+                    return "continue";
                 // Note:
                 // =====
                 // When audio data is resampled we get edge-effects at beginnging and end.
@@ -85,8 +89,6 @@ var AudioFormatReader_WAV = /** @class */ (function (_super) {
                 offset += this_1.RiffHeader.length;
                 // Add samples
                 samplesBuffer.set(tmpSamples, offset);
-                // Increment Id
-                var id = this_1.Id++;
                 // Push pages to the decoder
                 this_1.Audio.decodeAudioData(samplesBuffer.buffer, (function (decodedData) {
                     var _id = id;
@@ -150,8 +152,8 @@ var AudioFormatReader_WAV = /** @class */ (function (_super) {
         }
         curpos += 8;
         this.RiffHeader = new Uint8Array(this.DataBuffer.buffer.slice(0, curpos));
-        this.BatchSamples = Math.ceil(this.BatchLength * this.WaveSampleRate);
-        this.ExtraEdgeSamples = Math.ceil(this.ExtraEdgeLength * this.WaveSampleRate);
+        this.BatchSamples = Math.ceil(this.BatchDuration * this.WaveSampleRate);
+        this.ExtraEdgeSamples = Math.ceil(this.ExtraEdgeDuration * this.WaveSampleRate);
         this.BatchBytes = this.BatchSamples * this.WaveBlockAlign;
         this.TotalBatchSampleSize = (this.BatchSamples + this.ExtraEdgeSamples);
         this.TotalBatchByteSize = this.TotalBatchSampleSize * this.WaveBlockAlign;
@@ -185,7 +187,7 @@ var AudioFormatReader_WAV = /** @class */ (function (_super) {
     // Is called if the decoding of the samples succeeded
     AudioFormatReader_WAV.prototype.OnDecodeSuccess = function (decodedData, id) {
         // Calculate the length of the parts
-        var pickSize = this.BatchLength * decodedData.sampleRate;
+        var pickSize = this.BatchDuration * decodedData.sampleRate;
         this.SampleBudget += (pickSize - Math.ceil(pickSize));
         pickSize = Math.ceil(pickSize);
         var pickOffset = (decodedData.length - pickSize) / 2.0;

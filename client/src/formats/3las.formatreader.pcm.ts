@@ -19,17 +19,21 @@ class AudioFormatReader_PCM extends AudioFormatReader implements IAudioFormatRea
     // Number of PCM samples to convert together
     private readonly BatchSize: number;
 
+    // Duration of PCM samples to convert together
+    private readonly BatchDuration: number;
+
     // Number of bytes to convert together
     private readonly BatchByteSize: number;
 
-    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean,  dataReadyCallback: () => void, sampleRate: number, bitDepth: number, channels: number, batchSize: number)
+    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean,  dataReadyCallback: () => void, sampleRate: number, bitDepth: number, channels: number, batchDuration: number)
     {
         super(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback);
 
         this.SampleRate = sampleRate;
         this.BitDepth = bitDepth;
         this.Channels = channels;
-        this.BatchSize = batchSize;
+        this.BatchDuration = batchDuration;
+        this.BatchSize = Math.ceil(this.BatchDuration * this.SampleRate);
         this.BatchByteSize = this.BatchSize * this.Channels * Math.ceil(this.BitDepth / 8 );
 
         this.Denominator = Math.pow(2, this.BitDepth - 1);
@@ -37,8 +41,18 @@ class AudioFormatReader_PCM extends AudioFormatReader implements IAudioFormatRea
 
     protected ExtractAll(): void {
         while (this.CanExtractSamples()) {
-            let audioBuffer: AudioBuffer = this.Audio.createBuffer(this.Channels, this.BatchSize, this.SampleRate);
             let tmpSamples: Uint8Array = this.ExtractPCMSamples();
+            let audioBuffer: AudioBuffer = this.Audio.createBuffer(this.Channels, this.BatchSize, this.SampleRate);
+
+            if (!this.BeforeDecodeCheck(this.BatchDuration)) {
+                // Push empty samples into arrray
+                this.Samples.push(audioBuffer);
+    
+                // Callback to tell that data is ready
+                this.DataReadyCallback();
+
+                continue;
+            }
 
             try {
                 // Extract samples

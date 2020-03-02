@@ -3,6 +3,15 @@
 
 3LAS a browser-based low latency audio streaming solution for use in mobile devices.
 It's based on HTML5 (WebSockets and Web Audio API) and is written in TypeScript/JavaScript.
+Codec support:
+|  Codec  | Status |
+|---------|:------:|
+| MP3     |   ✓    |
+| WAV     |   ✓    |
+| Raw PCM |   ✓    |
+| OGG Vorbis | rudimentary |
+| OGG Opus  | experimental  |
+| AAC | experimental |
 
 Requirements
 ===

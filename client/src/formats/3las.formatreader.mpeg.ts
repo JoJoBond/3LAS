@@ -192,7 +192,7 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
             let id = this.Id++;
 
             // Check if decoded frames might be too far back in the past
-            if(!this.OnBeforeDecode(id, expectedTotalPlayTime))
+            if (!this.OnBeforeDecode(id, expectedTotalPlayTime))
                 return;
 
             // Push window to the decoder

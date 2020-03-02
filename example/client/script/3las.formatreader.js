@@ -123,28 +123,37 @@ var AudioFormatReader = /** @class */ (function () {
         // PCM
         settings["pcm"] = {};
         // Number of PCM samples to convert together
+        settings["pcm"]["BatchDuration"] = 1 / 10; // 0.1 seconds
+        /*
         if (isAndroid && isNativeChrome)
-            settings["pcm"]["BatchSize"] = 1000;
+            settings["pcm"]["BatchDuration"] = 1000;
         else if (isAndroid && isFirefox)
-            settings["pcm"]["BatchSize"] = 1000;
+            settings["pcm"]["BatchDuration"] = 1000;
         else
-            settings["pcm"]["BatchSize"] = 500;
+            settings["pcm"]["BatchDuration"]= 500;
+        */
         // WAV
         settings["wav"] = {};
-        // Length of wave samples to decode together
+        // Duration of wave samples to decode together
+        settings["wav"]["BatchDuration"] = 1 / 10; // 0.1 seconds
+        /*
         if (isAndroid && isNativeChrome)
-            settings["wav"]["BatchLength"] = 96 / 375;
+            settings["wav"]["BatchDuration"] = 96 / 375;
         else if (isAndroid && isFirefox)
-            settings["wav"]["BatchLength"] = 96 / 375;
+            settings["wav"]["BatchDuration"] = 96 / 375;
         else
-            settings["wav"]["BatchLength"] = 16 / 375;
-        // Length of addtional samples to decode to account for edge effects
+            settings["wav"]["BatchDuration"] = 16 / 375;
+        */
+        // Duration of addtional samples to decode to account for edge effects
+        settings["wav"]["ExtraEdgeDuration"] = 1 / 300; // 0.00333... seconds
+        /*
         if (isAndroid && isNativeChrome)
-            settings["wav"]["ExtraEdgeLength"] = 1 / 1000;
+            settings["wav"]["ExtraEdgeDuration"] = 1 / 1000;
         else if (isAndroid && isFirefox)
-            settings["wav"]["ExtraEdgeLength"] = 1 / 1000;
+            settings["wav"]["ExtraEdgeDuration"] = 1 / 1000;
         else
-            settings["wav"]["ExtraEdgeLength"] = 1 / 1000;
+            settings["wav"]["ExtraEdgeDuration"] = 1 / 1000;
+        */
         // OGG
         settings["ogg"] = {};
         // Number of pages to decode together.
@@ -155,7 +164,7 @@ var AudioFormatReader = /** @class */ (function () {
         // Minimum number of frames to decode together
         // Theoretical minimum is 2.
         // Recommended value is 3 or higher.
-        settings["aac"]["MinDecodeFrames"] = 3;
+        settings["aac"]["MinDecodeFrames"] = 100;
         // MPEG
         settings["mpeg"] = {};
         // Adds a minimal ID3v2 tag before decoding frames.
@@ -221,7 +230,7 @@ var AudioFormatReader = /** @class */ (function () {
             case "audio/x-wav":
                 if (!AudioFormatReader.CanDecodeTypes(new Array("audio/wav", "audio/wave")))
                     throw new Error('CreateAudioFormatReader: Browser can not decode specified MIME-Type (' + mime + ')');
-                return new AudioFormatReader_WAV(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, settings["wav"]["BatchLength"], settings["wav"]["ExtraEdgeLength"]);
+                return new AudioFormatReader_WAV(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, settings["wav"]["BatchDuration"], settings["wav"]["ExtraEdgeDuration"]);
                 break;
             // Waveform Audio File Format
             case "audio/pcm":
@@ -250,7 +259,7 @@ var AudioFormatReader = /** @class */ (function () {
                     if (!bits) {
                         bits = 16;
                     }
-                    return new AudioFormatReader_PCM(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, sampleRate, bits, channels, settings["pcm"]["BatchSize"]);
+                    return new AudioFormatReader_PCM(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, sampleRate, bits, channels, settings["pcm"]["BatchDuration"]);
                 }
                 break;
             // Codecs below are not (yet) implemented

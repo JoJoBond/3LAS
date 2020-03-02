@@ -17,20 +17,28 @@ var __extends = (this && this.__extends) || (function () {
 })();
 var AudioFormatReader_PCM = /** @class */ (function (_super) {
     __extends(AudioFormatReader_PCM, _super);
-    function AudioFormatReader_PCM(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, sampleRate, bitDepth, channels, batchSize) {
+    function AudioFormatReader_PCM(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, sampleRate, bitDepth, channels, batchDuration) {
         var _this = _super.call(this, audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback) || this;
         _this.SampleRate = sampleRate;
         _this.BitDepth = bitDepth;
         _this.Channels = channels;
-        _this.BatchSize = batchSize;
+        _this.BatchDuration = batchDuration;
+        _this.BatchSize = Math.ceil(_this.BatchDuration * _this.SampleRate);
         _this.BatchByteSize = _this.BatchSize * _this.Channels * Math.ceil(_this.BitDepth / 8);
         _this.Denominator = Math.pow(2, _this.BitDepth - 1);
         return _this;
     }
     AudioFormatReader_PCM.prototype.ExtractAll = function () {
         while (this.CanExtractSamples()) {
-            var audioBuffer = this.Audio.createBuffer(this.Channels, this.BatchSize, this.SampleRate);
             var tmpSamples = this.ExtractPCMSamples();
+            var audioBuffer = this.Audio.createBuffer(this.Channels, this.BatchSize, this.SampleRate);
+            if (!this.BeforeDecodeCheck(this.BatchDuration)) {
+                // Push empty samples into arrray
+                this.Samples.push(audioBuffer);
+                // Callback to tell that data is ready
+                this.DataReadyCallback();
+                continue;
+            }
             try {
                 // Extract samples
                 var dataView = new DataView(tmpSamples.buffer);
