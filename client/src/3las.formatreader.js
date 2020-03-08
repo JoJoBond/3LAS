@@ -65,13 +65,17 @@ var AudioFormatReader = /** @class */ (function () {
     };
     // Checks if a decode makes sense
     AudioFormatReader.prototype.OnBeforeDecode = function (id, duration) {
-        if (this.BeforeDecodeCheck(duration)) {
+        return true;
+        //TODO Fix this
+        /*
+        if(this.BeforeDecodeCheck(duration)) {
             return true;
         }
         else {
-            this.OnDataReady(id, this.Audio.createBuffer(1, duration, this.Audio.sampleRate));
+            this.OnDataReady(id, this.Audio.createBuffer(1, Math.ceil(duration * this.Audio.sampleRate), this.Audio.sampleRate));
             return false;
         }
+        */
     };
     // Stores the converted bnuches of samples in right order
     AudioFormatReader.prototype.OnDataReady = function (id, audioBuffer) {
@@ -172,7 +176,10 @@ var AudioFormatReader = /** @class */ (function () {
         // Minimum number of frames to decode together
         // Theoretical minimum is 2.
         // Recommended value is 3 or higher.
-        settings["mpeg"]["MinDecodeFrames"] = 3;
+        if (isAndroid)
+            settings["mpeg"]["MinDecodeFrames"] = 17;
+        else
+            settings["mpeg"]["MinDecodeFrames"] = 3;
         return settings;
     };
     AudioFormatReader.Create = function (mime, audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, settings) {

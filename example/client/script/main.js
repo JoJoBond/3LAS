@@ -4,6 +4,7 @@
 /// <reference path="../../../client/src/formats/3las.formatreader.ogg.ts" />
 /// <reference path="../../../client/src/formats/3las.formatreader.wav.ts" />
 /// <reference path="../../../client/src/formats/3las.formatreader.pcm.ts" />
+/// <reference path="../../../client/src/formats/3las.formatreader.aac.ts" />
 /// <reference path="../../../client/src/3las.helpers.ts" />
 /// <reference path="../../../client/src/3las.liveaudioplayer.ts" />
 /// <reference path="../../../client/src/3las.logging.ts" />

@@ -111,13 +111,18 @@ abstract class AudioFormatReader implements IAudioFormatReader {
 
     // Checks if a decode makes sense
     protected OnBeforeDecode(id: number, duration: number): boolean {
+        return true;
+
+        //TODO Fix this
+        /*
         if(this.BeforeDecodeCheck(duration)) {
             return true;
         }
         else {
-            this.OnDataReady(id, this.Audio.createBuffer(1, duration, this.Audio.sampleRate));
+            this.OnDataReady(id, this.Audio.createBuffer(1, Math.ceil(duration * this.Audio.sampleRate), this.Audio.sampleRate));
             return false;
         }
+        */
     }
 
     // Stores the converted bnuches of samples in right order
@@ -243,7 +248,10 @@ abstract class AudioFormatReader implements IAudioFormatReader {
         // Minimum number of frames to decode together
         // Theoretical minimum is 2.
         // Recommended value is 3 or higher.
-        settings["mpeg"]["MinDecodeFrames"] = 3;
+        if (isAndroid)
+            settings["mpeg"]["MinDecodeFrames"] = 17;
+        else
+            settings["mpeg"]["MinDecodeFrames"] = 3;
 
         return settings;
     }
