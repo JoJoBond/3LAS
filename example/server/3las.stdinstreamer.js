@@ -40,6 +40,17 @@ class StdInStreamer {
             client.send(data, this.SendOptions);
         }).bind(this));
     }
+    OnServerConnection(socket, _request) {
+        socket.on('error', (_err) => { this.OnClientError(socket); });
+        socket.on('message', (_data) => { this.OnClientError(socket); });
+    }
+    OnClientError(socket) {
+        try {
+            socket.close();
+        }
+        catch (ex) {
+        }
+    }
     static Create(format, options) {
         if (format == "mpeg") {
             return new StdInStreamer_MPEG(options["-port"]);
@@ -70,7 +81,8 @@ class StdInStreamer_MPEG extends StdInStreamer {
     OnStdInData(chunk) {
         this.Broadcast(chunk);
     }
-    OnServerConnection(_socket, _request) {
+    OnServerConnection(socket, request) {
+        super.OnServerConnection(socket, request);
     }
 }
 class StdInStreamer_AAC extends StdInStreamer {
@@ -80,7 +92,8 @@ class StdInStreamer_AAC extends StdInStreamer {
     OnStdInData(chunk) {
         this.Broadcast(chunk);
     }
-    OnServerConnection(_socket, _request) {
+    OnServerConnection(socket, request) {
+        super.OnServerConnection(socket, request);
     }
 }
 class StdInStreamer_WAV extends StdInStreamer {
@@ -111,7 +124,8 @@ class StdInStreamer_WAV extends StdInStreamer {
             }
         }
     }
-    OnServerConnection(socket, _request) {
+    OnServerConnection(socket, request) {
+        super.OnServerConnection(socket, request);
         let headerBuffer = this.HeaderBuffer;
         for (let i = 0; i < headerBuffer.length; i++) {
             socket.send(headerBuffer[i], this.SendOptions);
@@ -125,7 +139,8 @@ class StdInStreamer_PCM extends StdInStreamer {
     OnStdInData(chunk) {
         this.Broadcast(chunk);
     }
-    OnServerConnection(_socket, _request) {
+    OnServerConnection(socket, request) {
+        super.OnServerConnection(socket, request);
     }
 }
 class StdInStreamer_OGG extends StdInStreamer {
@@ -152,7 +167,8 @@ class StdInStreamer_OGG extends StdInStreamer {
         }
         this.Broadcast(chunk);
     }
-    OnServerConnection(socket, _request) {
+    OnServerConnection(socket, request) {
+        super.OnServerConnection(socket, request);
         let headerBuffer = this.HeaderBuffer;
         for (let i = 0; i < headerBuffer.length; i++) {
             socket.send(headerBuffer[i], this.SendOptions);

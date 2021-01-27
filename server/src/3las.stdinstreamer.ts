@@ -47,7 +47,19 @@ abstract class StdInStreamer {
     }
 
     protected abstract OnStdInData(chunk: Buffer): void;
-    protected abstract OnServerConnection(socket: ws, request: IncomingMessage): void;
+
+    protected OnServerConnection(socket: ws, _request: IncomingMessage): void {
+        socket.on('error', (_err: Error) => { this.OnClientError(socket); });
+        socket.on('message', (_data: ws.Data) => { this.OnClientError(socket); });
+    }
+
+    private OnClientError(socket: ws): void {
+        try{
+            socket.close();
+        }
+        catch (ex){
+        }
+    }
 
     public static Create(format: string, options: Record<string, number>) {
         
@@ -84,7 +96,8 @@ class StdInStreamer_MPEG extends StdInStreamer {
         this.Broadcast(chunk);
     }
 
-    protected OnServerConnection(_socket: ws, _request: IncomingMessage): void {
+    protected OnServerConnection(socket: ws, request: IncomingMessage): void {
+        super.OnServerConnection(socket, request);
     }
 }
 
@@ -97,7 +110,8 @@ class StdInStreamer_AAC extends StdInStreamer {
         this.Broadcast(chunk);
     }
 
-    protected OnServerConnection(_socket: ws, _request: IncomingMessage): void {
+    protected OnServerConnection(socket: ws, request: IncomingMessage): void {
+        super.OnServerConnection(socket, request);
     }
 }
 
@@ -141,7 +155,9 @@ class StdInStreamer_WAV extends StdInStreamer {
         }
     }
     
-    protected OnServerConnection(socket: ws, _request: IncomingMessage): void {
+    protected OnServerConnection(socket: ws, request: IncomingMessage): void {
+        super.OnServerConnection(socket, request);
+
         let headerBuffer: Array<Buffer> = this.HeaderBuffer;
     
         for (let i: number = 0; i < headerBuffer.length; i++) {
@@ -159,7 +175,8 @@ class StdInStreamer_PCM extends StdInStreamer {
         this.Broadcast(chunk);
     }
 
-    protected OnServerConnection(_socket: ws, _request: IncomingMessage): void {
+    protected OnServerConnection(socket: ws, request: IncomingMessage): void {
+        super.OnServerConnection(socket, request);
     }
 }
 
@@ -198,7 +215,9 @@ class StdInStreamer_OGG extends StdInStreamer {
         this.Broadcast(chunk);
     }
     
-    protected OnServerConnection(socket: ws, _request: IncomingMessage): void {
+    protected OnServerConnection(socket: ws, request: IncomingMessage): void {
+        super.OnServerConnection(socket, request);
+
         let headerBuffer: Array<Buffer> = this.HeaderBuffer;
 
         for (let i: number = 0; i < headerBuffer.length; i++) {
