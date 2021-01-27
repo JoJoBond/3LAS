@@ -31,11 +31,13 @@ var _3LAS = /** @class */ (function () {
             (BrowserName == "IE" ? "Internet Explorer" : (BrowserName == "NativeChrome" ? "Chrome legacy" : (BrowserName == "Unknown" ? "Unknown Browser" : BrowserName))));
         this.SelectedMime = "";
         this.SelectedPort = 0;
+        this.SelectedPath = "";
         for (var i = 0; i < this.Settings.Formats.length; i++) {
             if (!AudioFormatReader.CanDecodeTypes([this.Settings.Formats[i].Mime]))
                 continue;
             this.SelectedMime = this.Settings.Formats[i].Mime;
             this.SelectedPort = this.Settings.Formats[i].Port;
+            this.SelectedPath = this.Settings.Formats[i].Path;
             break;
         }
         if (this.SelectedMime == "" || this.SelectedPort == 0) {
@@ -66,7 +68,7 @@ var _3LAS = /** @class */ (function () {
     _3LAS.prototype.Start = function () {
         this.MobileUnmute();
         try {
-            this.WebSocket = new WebSocketClient(this.Logger, 'ws://' + this.Settings.SocketHost + ':' + this.SelectedPort.toString(), this.OnSocketError.bind(this), this.OnSocketConnect.bind(this), this.OnSocketDataReady.bind(this), this.OnSocketDisconnect.bind(this));
+            this.WebSocket = new WebSocketClient(this.Logger, 'ws://' + this.Settings.SocketHost + ':' + this.SelectedPort.toString() + this.SelectedPath, this.OnSocketError.bind(this), this.OnSocketConnect.bind(this), this.OnSocketDataReady.bind(this), this.OnSocketDisconnect.bind(this));
             this.Logger.Log("Init of WebSocketClient succeeded");
             this.Logger.Log("Trying to connect to server.");
         }

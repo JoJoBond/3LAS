@@ -11,7 +11,7 @@
 /// <reference path="../../../client/src/3las.websocketclient.ts" />
 
 var Stream: _3LAS;
-declare var Formats: Array<{Mime: string, Port: number}>;
+declare var Formats: Array<{Mime: string, Port: number, Path: string}>;
 
 function Init(_ev: Event): void {
     document.getElementById("logwindowbutton").onclick = OnLogWindowButtonClick;
@@ -37,15 +37,15 @@ function Init(_ev: Event): void {
     
     // Format settings, first entry has priority
     // Mp3 
-    //settings.Formats.push({ "Mime": "audio/mpeg", "Port": 9601 });
+    //settings.Formats.push({ "Mime": "audio/mpeg", "Port": 9601, "Path": "" });
     // Wav 
-    //settings.Formats.push({ "Mime": "audio/wav", "Port": 9602 });
+    //settings.Formats.push({ "Mime": "audio/wav", "Port": 9602, "Path": "" });
     // PCM
-    //settings.Formats.push({ "Mime": "audio/pcm;rate=16000;channels=1;bits=8", "Port": 9603 });
+    //settings.Formats.push({ "Mime": "audio/pcm;rate=16000;channels=1;bits=8", "Port": 9603, "Path": "" });
     // Ogg vorbis (beta stage)
-    //settings.Formats.push({ "Mime": "audio/ogg; codecs=vorbis", "Port": 9604 });
+    //settings.Formats.push({ "Mime": "audio/ogg; codecs=vorbis", "Port": 9604, "Path": "" });
 	// Ogg opus (alpha stage)
-    //settings.Formats.push({ "Mime": "audio/ogg; codecs=opus", "Port": 9604 });
+    //settings.Formats.push({ "Mime": "audio/ogg; codecs=opus", "Port": 9604, "Path": "" });
 
     try{
         Stream = new _3LAS(logger, settings);

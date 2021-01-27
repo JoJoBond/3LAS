@@ -3,7 +3,7 @@ declare class mozAudioContext extends AudioContext {}
 
 class _3LAS_Settings {
     public SocketHost: string;
-    public Formats: Array<{Mime: string, Port: number}>;
+    public Formats: Array<{Mime: string, Port: number, Path: string}>;
     public MaxVolume: number;
     public InitialBufferLength: number;
     public AutoCorrectSpeed: boolean;
@@ -28,6 +28,7 @@ class _3LAS {
 
     private readonly SelectedMime: string;
     private readonly SelectedPort: number;
+    private readonly SelectedPath: string;
 
     private WebSocket: WebSocketClient;
 
@@ -60,6 +61,7 @@ class _3LAS {
 
         this.SelectedMime = "";
         this.SelectedPort = 0;
+        this.SelectedPath = "";
 
         for (let i: number = 0; i < this.Settings.Formats.length; i++)
         {
@@ -68,6 +70,7 @@ class _3LAS {
 
             this.SelectedMime = this.Settings.Formats[i].Mime;
             this.SelectedPort = this.Settings.Formats[i].Port;
+            this.SelectedPath = this.Settings.Formats[i].Path;
             break;
         }
 
@@ -128,7 +131,7 @@ class _3LAS {
         {
             this.WebSocket = new WebSocketClient(
                 this.Logger,
-                'ws://' + this.Settings.SocketHost + ':' + this.SelectedPort.toString(),
+                'ws://' + this.Settings.SocketHost + ':' + this.SelectedPort.toString() + this.SelectedPath,
                 this.OnSocketError.bind(this),
                 this.OnSocketConnect.bind(this),
                 this.OnSocketDataReady.bind(this),
