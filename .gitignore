@@ -6,7 +6,7 @@
 
 /server/src/node_modules
 
-/example/server/node_modules
-/example/server/package-lock.json
-/example/server/*.dll
-/example/server/*.exe
+/example/server/**
+!/example/server/**.js
+!/example/server/test.bat
+!/example/server/test.sh

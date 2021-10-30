@@ -1,41 +1,27 @@
 /// <reference path="../../../client/src/3las.ts" />
-/// <reference path="../../../client/src/3las.formatreader.ts" />
-/// <reference path="../../../client/src/formats/3las.formatreader.mpeg.ts" />
-/// <reference path="../../../client/src/formats/3las.formatreader.ogg.ts" />
-/// <reference path="../../../client/src/formats/3las.formatreader.wav.ts" />
-/// <reference path="../../../client/src/formats/3las.formatreader.pcm.ts" />
-/// <reference path="../../../client/src/formats/3las.formatreader.aac.ts" />
-/// <reference path="../../../client/src/3las.helpers.ts" />
-/// <reference path="../../../client/src/3las.liveaudioplayer.ts" />
-/// <reference path="../../../client/src/3las.logging.ts" />
-/// <reference path="../../../client/src/3las.websocketclient.ts" />
+/// <reference path="../../../client/src/3las.webrtc.ts" />
+/// <reference path="../../../client/src/fallback/3las.fallback.ts" />
+/// <reference path="../../../client/src/fallback/3las.formatreader.ts" />
+/// <reference path="../../../client/src/fallback/formats/3las.formatreader.mpeg.ts" />
+/// <reference path="../../../client/src/fallback/formats/3las.formatreader.wav.ts" />
+/// <reference path="../../../client/src/fallback/3las.liveaudioplayer.ts" />
+/// <reference path="../../../client/src/util/3las.helpers.ts" />
+/// <reference path="../../../client/src/util/3las.logging.ts" />
+/// <reference path="../../../client/src/util/3las.websocketclient.ts" />
 var Stream;
+var DefaultVolume = 0.5;
 function Init(_ev) {
     document.getElementById("logwindowbutton").onclick = OnLogWindowButtonClick;
     var logger = new Logging(document.getElementById("logwindow"), "li");
-    if (typeof WebSocket === "undefined" && typeof webkitWebSocket === "undefined" && typeof mozWebSocket === "undefined") {
-        document.getElementById("socketsunsupported").style.display = "block";
-        return;
-    }
-    if (typeof AudioContext === "undefined" && typeof webkitAudioContext === "undefined" && typeof mozAudioContext === "undefined") {
-        document.getElementById("webaudiounsupported").style.display = "block";
-        return;
-    }
     // Load default settings
     var settings = new _3LAS_Settings();
-    // Get format settings from global variable
-    settings.Formats = Formats;
-    // Format settings, first entry has priority
-    // Mp3 
-    //settings.Formats.push({ "Mime": "audio/mpeg", "Port": 9601, "Path": "" });
-    // Wav 
-    //settings.Formats.push({ "Mime": "audio/wav", "Port": 9602, "Path": "" });
-    // PCM
-    //settings.Formats.push({ "Mime": "audio/pcm;rate=16000;channels=1;bits=8", "Port": 9603, "Path": "" });
-    // Ogg vorbis (beta stage)
-    //settings.Formats.push({ "Mime": "audio/ogg; codecs=vorbis", "Port": 9604, "Path": "" });
-    // Ogg opus (alpha stage)
-    //settings.Formats.push({ "Mime": "audio/ogg; codecs=opus", "Port": 9604, "Path": "" });
+    if (typeof RtcConfig == 'undefined')
+        RtcConfig = {};
+    settings.WebRTC.RtcConfig = RtcConfig;
+    if (typeof AudioTagId == 'undefined')
+        settings.WebRTC.AudioTag = null;
+    else
+        settings.WebRTC.AudioTag = document.getElementById(AudioTagId);
     try {
         Stream = new _3LAS(logger, settings);
     }
@@ -43,9 +29,8 @@ function Init(_ev) {
         document.getElementById("webaudiounsupported").style.display = "block";
         return;
     }
-    Stream.Volume = 0.5;
-    Stream.SocketConnectivityCallback = OnSocketConnectivityCallback;
-    Stream.SocketActivityCallback = OnSocketActivityCallback;
+    Stream.ConnectivityCallback = OnConnectivityCallback;
+    Stream.ActivityCallback = OnActivityCallback;
     document.getElementById("unmutebutton").onclick = OnUnmuteButtonClick;
     document.getElementById("mutebutton").onclick = OnMuteButtonClick;
     document.getElementById("playbutton").onclick = OnPlayButtonClick;
@@ -58,8 +43,12 @@ function OnLogWindowButtonClick(_ev) {
     var logwindow = document.getElementById("logwindow");
     logwindow.style.display = (logwindow.style.display == "block" ? "none" : "block");
 }
-function OnSocketConnectivityCallback(isConnected) {
+function OnConnectivityCallback(isConnected) {
     if (isConnected) {
+        if (DefaultVolume >= 0) {
+            Stream.Volume = DefaultVolume;
+            DefaultVolume = -1;
+        }
         document.getElementById("volumebar").style.visibility = "visible";
         document.getElementById("controlbar").style.visibility = "visible";
         document.getElementById("playbutton").style.visibility = "hidden";
@@ -76,7 +65,7 @@ function OnSocketConnectivityCallback(isConnected) {
         document.getElementById("unmutebutton").style.visibility = "hidden";
     }
 }
-function OnSocketActivityCallback() {
+function OnActivityCallback() {
     var redlighton = document.getElementById("redlighton");
     var redlightoff = document.getElementById("redlightoff");
     if (redlightoff.style.visibility == "hidden") {

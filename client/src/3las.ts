@@ -1,137 +1,99 @@
-declare class webkitAudioContext extends AudioContext {}
-declare class mozAudioContext extends AudioContext {}
-
-class _3LAS_Settings {
+class _3LAS_Settings
+{
     public SocketHost: string;
-    public Formats: Array<{Mime: string, Port: number, Path: string}>;
-    public MaxVolume: number;
-    public InitialBufferLength: number;
-    public AutoCorrectSpeed: boolean;
+    public SocketPort: number;
+    public SocketPath: string;
+    public WebRTC: WebRTC_Settings
+    public Fallback: Fallback_Settings;
 
-    constructor(){
+    constructor()
+    {
         this.SocketHost = document.location.hostname ? document.location.hostname : "127.0.0.1";
-        this.Formats = new Array();
-        this.MaxVolume = 1.0;
-        this.AutoCorrectSpeed = false;
-        this.InitialBufferLength = 1.0 / 3.0;
+        this.SocketPort = 8080;
+        this.SocketPath = "/";
+        this.WebRTC = new WebRTC_Settings();
+        this.Fallback = new Fallback_Settings();
     }
 }
 
 class _3LAS {
-    private readonly Audio: AudioContext;
+    public ActivityCallback: () => void;
+    public ConnectivityCallback: (status: boolean) => void;
 
     private readonly Logger: Logging;
-
     private readonly Settings: _3LAS_Settings;
-    private readonly FormatReader: IAudioFormatReader;
-    private readonly Player: LiveAudioPlayer;
-
-    private readonly SelectedMime: string;
-    private readonly SelectedPort: number;
-    private readonly SelectedPath: string;
-
+    
     private WebSocket: WebSocketClient;
+    private ConnectivityFlag:  boolean;
 
-    public SocketActivityCallback: () => void;
-    public SocketConnectivityCallback: (isConnected: boolean) => void;
+    private readonly WebRTC: WebRTC;
+    private readonly Fallback: Fallback;
 
-    constructor(logger: Logging, settings: _3LAS_Settings) {
+    constructor(logger: Logging, settings: _3LAS_Settings)
+    {
         this.Logger = logger;
-        if(!this.Logger) {
+        if(!this.Logger)
+        {
             this.Logger = new Logging(null, null);
         }
 
         this.Settings = settings;
 
-        // Create audio context
-        if (typeof AudioContext !== "undefined")
-            this.Audio = new AudioContext();
-        else if (typeof webkitAudioContext !== "undefined")
-            this.Audio = new webkitAudioContext();	
-        else if (typeof mozAudioContext !== "undefined")
-            this.Audio = new mozAudioContext();
-        else {
-            this.Logger.Log('3LAS: Browser does not support "AudioContext".');
-            throw new Error();
-        }
-
-        this.Logger.Log("Detected: " + 
-            (OSName == "MacOSX" ? "Mac OSX": (OSName == "Unknown" ? "Unknown OS" : OSName)) + ", " +
-            (BrowserName == "IE" ? "Internet Explorer" : (BrowserName == "NativeChrome" ? "Chrome legacy" : (BrowserName == "Unknown" ? "Unknown Browser" : BrowserName))));
-
-        this.SelectedMime = "";
-        this.SelectedPort = 0;
-        this.SelectedPath = "";
-
-        for (let i: number = 0; i < this.Settings.Formats.length; i++)
-        {
-            if(!AudioFormatReader.CanDecodeTypes([this.Settings.Formats[i].Mime]))
-                continue;
-
-            this.SelectedMime = this.Settings.Formats[i].Mime;
-            this.SelectedPort = this.Settings.Formats[i].Port;
-            this.SelectedPath = this.Settings.Formats[i].Path;
-            break;
-        }
-
-        if (this.SelectedMime == "" || this.SelectedPort == 0)
-        {
-            this.Logger.Log("None of the available MIME types are supported.");
-            throw new Error();
-        }
-        
-        this.Logger.Log("Using MIME: " + this.SelectedMime + " on port: " + this.SelectedPort.toString());
-
-        
         try
         {
-            this.Player = new LiveAudioPlayer(
-                this.Audio,
-                this.Logger,
-                this.Settings.MaxVolume,
-                this.Settings.InitialBufferLength,
-                this.Settings.AutoCorrectSpeed
-            );
-            this.Logger.Log("Init of LiveAudioPlayer succeeded");
+            this.WebRTC = new WebRTC(this.Logger, this.Settings.WebRTC);
+            this.WebRTC.ActivityCallback = this.OnActivity.bind(this);
+            this.WebRTC.DisconnectCallback = this.OnSocketDisconnect.bind(this);
         }
-        catch (e)
+        catch
         {
-            this.Logger.Log("Init of LiveAudioPlayer failed: " + e);
-            throw new Error();
+            this.WebRTC = null;
         }
 
-        try
+        if(this.WebRTC == null)
         {
-            this.FormatReader = AudioFormatReader.Create(
-                this.SelectedMime,
-                this.Audio,
-                this.Logger,
-                this.OnReaderError.bind(this),
-                this.Player.CheckBeforeDecode,
-                this.OnReaderDataReady.bind(this),
-                AudioFormatReader.DefaultSettings()
-            );
-            this.Logger.Log("Init of AudioFormatReader succeeded");
-        }
-        catch (e)
-        {
-            this.Logger.Log("Init of AudioFormatReader failed: " + e);
-            throw new Error();
+            try
+            {
+                this.Fallback = new Fallback(this.Logger, this.Settings.Fallback);
+                this.Fallback.ActivityCallback = this.OnActivity.bind(this);
+            }
+            catch
+            {
+                this.Fallback = null;
+            }
         }
 
-        this.PacketModCounter = 0;
-        this.LastCheckTime = 0;
-        this.FocusChecker = 0;
+        if(this.WebRTC == null && this.Fallback == null)
+        {
+            this.Logger.Log('3LAS: Browser does not support either media handling methods.');
+            throw new Error();
+        }
     }
 
-    public Start(): void {
-        this.MobileUnmute();
+    public set Volume(value: number)
+    {
+        if(this.WebRTC)
+            this.WebRTC.Volume = value;
+        else
+            this.Fallback.Volume = value;
+    }
 
+    public get Volume(): number
+    {
+        if(this.WebRTC)
+            return this.WebRTC.Volume;
+        else
+            return this.Fallback.Volume;
+    }
+
+    public Start(): void
+    {
+        this.ConnectivityFlag = false;
         try
         {
             this.WebSocket = new WebSocketClient(
                 this.Logger,
-                'ws://' + this.Settings.SocketHost + ':' + this.SelectedPort.toString() + this.SelectedPath,
+                'ws://' + this.Settings.SocketHost + ':' + this.Settings.SocketPort.toString() + this.Settings.SocketPath,
                 this.OnSocketError.bind(this),
                 this.OnSocketConnect.bind(this),
                 this.OnSocketDataReady.bind(this),
@@ -147,56 +109,17 @@ class _3LAS {
         }
     }
 
-    public MobileUnmute(): void {
-        let amplification = this.Audio.createGain();
-
-        // Set volume to max
-        amplification.gain.value = 1.0;
-        
-        // Connect gain node to context
-        amplification.connect(this.Audio.destination);
-
-        // Create one second buffer with silence		
-        let audioBuffer = this.Audio.createBuffer(2, this.Audio.sampleRate, this.Audio.sampleRate);
-    
-        // Create new audio source for the buffer
-        let sourceNode = this.Audio.createBufferSource();
-    
-        // Make sure the node deletes itself after playback
-        sourceNode.onended = function (_ev: Event) {
-            sourceNode.disconnect();
-            amplification.disconnect();
-        };
-    
-        // Pass audio data to source
-        sourceNode.buffer = audioBuffer;
-    
-        // Connect the source to the gain node
-        sourceNode.connect(amplification);
-    
-        // Play source		
-        sourceNode.start();
-    }
-
-    public set Volume(value: number) {
-        this.Player.Volume = value * this.Settings.MaxVolume;
-    }
-
-    public get Volume(): number {
-        return this.Player.Volume / this.Settings.MaxVolume;
-    }
-
-    // Callback functions from format reader
-    private OnReaderError(): void
-    {			
-        this.Logger.Log("Reader error: Decoding failed.");
-    }
-    
-    private OnReaderDataReady(): void
+    private OnActivity(): void
     {
-        while (this.FormatReader.SamplesAvailable())
+        if(this.ActivityCallback)
+            this.ActivityCallback();
+
+        if(!this.ConnectivityFlag)
         {
-            this.Player.PushBuffer(this.FormatReader.PopSamples());
+            this.ConnectivityFlag = true;
+            
+            if(this.ConnectivityCallback)
+                this.ConnectivityCallback(true);
         }
     }
 
@@ -204,80 +127,60 @@ class _3LAS {
     private OnSocketError(message: string): void
     {
         this.Logger.Log("Network error: " + message);
+
+        if(this.WebRTC)
+            this.WebRTC.OnSocketError(message);
+        else
+            this.Fallback.OnSocketError(message);
     }
     
     private OnSocketConnect(): void
     {
-        this.StartFocusChecker();
-        
         this.Logger.Log("Established connection with server.");
+        
+        if(this.WebRTC)
+            this.WebRTC.OnSocketConnect();
+        else
+            this.Fallback.OnSocketConnect();
 
-        if(this.SocketConnectivityCallback)
-            this.SocketConnectivityCallback(true);
+            
+        if(this.WebRTC)
+            this.WebRTC.Init(this.WebSocket);
+        else
+            this.Fallback.Init(this.WebSocket);
     }
     
     private OnSocketDisconnect(): void
     {
-        this.StopFocusChecker();
-        this.FormatReader.Reset();
-        this.Player.Reset();
-
         this.Logger.Log("Lost connection to server.");
-
-        if(this.SocketConnectivityCallback)
-            this.SocketConnectivityCallback(false);
         
+        if(this.WebRTC)
+            this.WebRTC.OnSocketDisconnect();
+        else
+            this.Fallback.OnSocketDisconnect();
+
+        if(this.WebRTC)
+            this.WebRTC.Reset();
+        else
+            this.Fallback.Reset();
+
+
+        if(this.ConnectivityFlag)
+        {
+            this.ConnectivityFlag = false;
+            
+            if(this.ConnectivityCallback)
+                this.ConnectivityCallback(false);
+        }
+
         this.Start();
     }
     
-    private PacketModCounter: number;
-    private OnSocketDataReady(data: ArrayBuffer): void
+    private OnSocketDataReady(data: ArrayBuffer|string): void
     {
-        this.PacketModCounter++;
-        
-        if (this.PacketModCounter > 100)
-        {
-            if(this.SocketActivityCallback)
-                this.SocketActivityCallback();
-            this.PacketModCounter = 0;
-        }
-
-        this.FormatReader.PushData(new Uint8Array(data));
-    }
-
-
-    // Check if page has lost focus (e.g. switching apps on mobile)
-    private LastCheckTime: number;
-    private FocusChecker: number;
-    
-    private StartFocusChecker(): void
-    {
-        if (!this.FocusChecker)
-        {
-            this.LastCheckTime = Date.now();
-            this.FocusChecker = window.setInterval(this.CheckFocus.bind(this), 2000);
-        }
-    }
-    
-    private StopFocusChecker(): void
-    {
-        if (this.FocusChecker)
-        {
-            window.clearInterval(this.FocusChecker);
-            this.FocusChecker = 0;
-        }
-    }
-    
-    private CheckFocus(): void
-    {
-        let checkTime: number = Date.now();
-        // Check if focus was lost
-        if (checkTime - this.LastCheckTime > 10000)
-        {
-            // If so, drop all samples in the buffer
-            this.Logger.Log("Focus lost, purging format reader.")
-            this.FormatReader.PurgeData();
-        }
-        this.LastCheckTime = checkTime;
+        if(this.WebRTC)
+            this.WebRTC.OnSocketDataReady(data);
+        else
+            this.Fallback.OnSocketDataReady(<ArrayBuffer>data);
     }
 }
