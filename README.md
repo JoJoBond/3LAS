@@ -46,7 +46,7 @@ Notes
 ===
 The main transmission method was changed from WebSockets and WebAudio to WebRTC.
 WebSockets and WebAudio are still used as a fallback for clients that don't support WebRTC.
-The old version that doesn't use WebRTC is still available in the [socket_only](../../JoJoBond/3LAS/tree/socket_only) branch.
+The old version that doesn't use WebRTC is still available in the [socket_only](https://github.com/JoJoBond/3LAS/tree/socket_only) branch.
 In fallback mode only mp3 and wav are offered. Other formats will no longer be developed or supported.
 The fallback streams are automatically generated via ffmpeg as child processes.
 Within a LAN environment STUN/TURN server should not be necessary, for an Internet service STUN/TURN servers are practically required.
