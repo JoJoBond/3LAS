@@ -10,3 +10,4 @@
 !/example/server/**.js
 !/example/server/test.bat
 !/example/server/test.sh
+!/example/server/settings.json

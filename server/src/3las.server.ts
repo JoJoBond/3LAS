@@ -12,6 +12,7 @@ import * as ws from "ws";
 const wrtc = require('wrtc');
 
 interface ISettings {
+    RtcConfig: any,
     FallbackFFmpegPath: string,
     FallbackUseMp3: boolean,
     FallbackUseWav: boolean,
@@ -123,7 +124,7 @@ class StreamClient {
     }
 
     public async StartRtc(rtcSource: any): Promise<void> {
-        this.RtcPeer = new wrtc.RTCPeerConnection();
+        this.RtcPeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
 
         this.RtcTrack = rtcSource.createTrack()
         this.RtcPeer.addTrack(this.RtcTrack);

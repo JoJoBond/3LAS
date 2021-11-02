@@ -114,7 +114,7 @@ class StreamClient {
     }
     StartRtc(rtcSource) {
         return __awaiter(this, void 0, void 0, function* () {
-            this.RtcPeer = new wrtc.RTCPeerConnection();
+            this.RtcPeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
             this.RtcTrack = rtcSource.createTrack();
             this.RtcPeer.addTrack(this.RtcTrack);
             this.RtcPeer.onicecandidate = this.OnIceCandidate.bind(this);
