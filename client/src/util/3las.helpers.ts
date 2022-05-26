@@ -1,6 +1,6 @@
 /*
-	Helpers is part of 3LAS (Low Latency Live Audio Streaming)
-	https://github.com/JoJoBond/3LAS
+    Helpers is part of 3LAS (Low Latency Live Audio Streaming)
+    https://github.com/JoJoBond/3LAS
 */
 
 var isAndroid: boolean;
@@ -34,7 +34,7 @@ var OSName: string;
     isLinux = (ua.match('android') ? false : (ua.match('linux') ? true : false));
     isBSD = (ua.match('bsd') ? true : false);
     isMacOSX = !isIOS && !isIPadOS && (ua.match('mac osx') ? true : false);
-    
+
     isInternetExplorer = (ua.match('msie') ? true : false);
     isEdge = (ua.match('edg') ? true : false);
     isSafari = (ua.match(/(chromium|chrome|crios)/g) ? false : (ua.match('safari') ? true : false));
@@ -42,9 +42,9 @@ var OSName: string;
     isChrome = !isSafari && (ua.match(/(chromium|chrome|crios)/g) ? true : false);
     isFirefox = (ua.match('like gecko') ? false : (ua.match(/(gecko|fennec|firefox)/g) ? true : false));
 
-    webkitVer = parseInt((/WebKit\/([0-9]+)/.exec(navigator.appVersion) || ["","0"])[1], 10) || void 0; // also match AppleWebKit
+    webkitVer = parseInt((/WebKit\/([0-9]+)/.exec(navigator.appVersion) || ["", "0"])[1], 10) || void 0; // also match AppleWebKit
     isNativeChrome = isAndroid && webkitVer <= 537 && navigator.vendor.toLowerCase().indexOf('google') == 0;
-    
+
     BrowserName = "Unknown";
     if (isInternetExplorer)
         BrowserName = "IE";
@@ -62,7 +62,7 @@ var OSName: string;
         BrowserName = "NativeChrome";
     else
         BrowserName = "Unknown";
-        
+
     OSName = "Unknown";
     if (isAndroid)
         OSName = "Android";

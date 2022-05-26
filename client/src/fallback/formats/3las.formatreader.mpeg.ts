@@ -1,6 +1,6 @@
 /*
-	MPEG audio format reader is part of 3LAS (Low Latency Live Audio Streaming)
-	https://github.com/JoJoBond/3LAS
+    MPEG audio format reader is part of 3LAS (Low Latency Live Audio Streaming)
+    https://github.com/JoJoBond/3LAS
 */
 
 class MPEGFrameInfo {
@@ -8,7 +8,7 @@ class MPEGFrameInfo {
     public readonly SampleCount: number;
     public readonly SampleRate: number;
 
-    constructor(data: Uint8Array, sampleCount: number, sampleRate: number){
+    constructor(data: Uint8Array, sampleCount: number, sampleRate: number) {
         this.Data = data;
         this.SampleCount = sampleCount;
         this.SampleRate = sampleRate;
@@ -86,18 +86,17 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
 
     // Array for individual frames
     private Frames: Array<MPEGFrameInfo>;
-    
+
     // Indices that mark frame borders
     private FrameStartIdx: number;
     private FrameEndIdx: number;
-    
+
     private FrameSamples: number;
     private FrameSampleRate: number;
-    
+
     private TimeBudget: number;
 
-    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean, dataReadyCallback: () => void, addId3Tag: boolean, minDecodeFrames: number)
-    {
+    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean, dataReadyCallback: () => void, addId3Tag: boolean, minDecodeFrames: number) {
         super(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback);
 
         this._OnDecodeSuccess = this.OnDecodeSuccess.bind(this);
@@ -138,7 +137,7 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
             // Look for frames
             this.FindFrame();
         }
-        
+
         // Check if we have enough frames to decode
         if (this.Frames.length >= this.MinDecodeFrames) {
             // Note:
@@ -315,7 +314,7 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
 
             let budgetSamples: number = this.TimeBudget * decodedData.sampleRate;
             if (budgetSamples > 1.0) {
-                if(budgetSamples > decodedData.length - extractSampleCount) {
+                if (budgetSamples > decodedData.length - extractSampleCount) {
                     budgetSamples = decodedData.length - extractSampleCount;
                 }
                 extractSampleCount += budgetSamples;
@@ -337,7 +336,7 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
         for (let i: number = 0; i < decodedData.numberOfChannels; i++)
             audioBuffer.getChannelData(i).set(decodedData.getChannelData(i).subarray(
                 extractSampleOffset,
-                extractSampleOffset  + extractSampleCount
+                extractSampleOffset + extractSampleCount
             ));
 
         this.OnDataReady(id, audioBuffer);

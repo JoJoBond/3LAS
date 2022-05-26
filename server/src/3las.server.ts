@@ -1,6 +1,6 @@
 /*
-	Stdin streamer is part of 3LAS (Low Latency Live Audio Streaming)
-	https://github.com/JoJoBond/3LAS
+    Stdin streamer is part of 3LAS (Low Latency Live Audio Streaming)
+    https://github.com/JoJoBond/3LAS
 */
 
 import { ReadStream } from "tty";
@@ -18,27 +18,99 @@ interface ISettings {
     FallbackUseWav: boolean,
     FallbackMp3Bitrate: number,
     FallbackWavSampleRate: number,
+    AdminKey: string,
+}
+
+interface IStats {
+    Total: number,
+    Rtc: number,
+    Fallback: Record<"wav" | "mp3", number>
 }
 
 const Settings: ISettings = JSON.parse(readFileSync('settings.json', 'utf-8'));
 
 const FFmpeg_command: string = (() => {
-	if (process.platform === 'win32')
-		return Settings.FallbackFFmpegPath;
-	else if (process.platform === 'linux')
-		return "ffmpeg";
+    if (process.platform === 'win32')
+        return Settings.FallbackFFmpegPath;
+    else if (process.platform === 'linux')
+        return "ffmpeg";
 })();
 
-var test: boolean = false;
+class RtcProvider {
+    private RtcSourcePeer: RTCPeerConnection;
+    private RtcSourceMediaSource: any;
+    private RtcSourceTrack: any;
+
+    private RtcDistributePeer: RTCPeerConnection;
+    private RtcDistributeTrack: any;
+
+    constructor() {
+        this.RtcDistributePeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
+        this.RtcDistributePeer.addTransceiver('audio');
+        this.RtcDistributePeer.ontrack = this.OnTrack.bind(this);
+        this.RtcDistributePeer.onicecandidate = this.OnIceCandidate_Distribute.bind(this);
+
+        this.RtcSourcePeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
+        this.RtcSourceMediaSource = new wrtc.nonstandard.RTCAudioSource();
+        this.RtcSourceTrack = this.RtcSourceMediaSource.createTrack();
+        this.RtcSourcePeer.addTrack(this.RtcSourceTrack);
+        this.RtcSourcePeer.onicecandidate = this.OnIceCandidate_Source.bind(this);
+
+        this.Init();
+    }
+
+    public async Init(): Promise<void> {
+        let offer = await this.RtcSourcePeer.createOffer();
+
+        await this.RtcSourcePeer.setLocalDescription(new wrtc.RTCSessionDescription(offer));
+
+        await this.RtcDistributePeer.setRemoteDescription(offer);
+
+        let answer = await this.RtcDistributePeer.createAnswer();
+
+        await this.RtcDistributePeer.setLocalDescription(new wrtc.RTCSessionDescription(answer));
+
+        await this.RtcSourcePeer.setRemoteDescription(new wrtc.RTCSessionDescription(answer));
+    }
+
+    private OnTrack(event: RTCTrackEvent): void {
+        this.RtcDistributeTrack = event.track;
+        console.log(event.track);
+    }
+
+    private OnIceCandidate_Distribute(e: any): void {
+        if (!e.candidate)
+            return;
+
+        (async () => await this.RtcSourcePeer.addIceCandidate(e.candidate))();
+    }
+
+    private OnIceCandidate_Source(e: any): void {
+        if (!e.candidate)
+            return;
+
+        (async () => await this.RtcDistributePeer.addIceCandidate(e.candidate))();
+    }
+
+    public InsertMediaData(data: any): void {
+        if (!this.RtcSourceMediaSource)
+            return;
+        this.RtcSourceMediaSource.onData(data);
+    }
+
+    public GetTrack(): any {
+        return this.RtcDistributeTrack;
+    }
+}
+
 class StreamClient {
     private readonly Server: StreamServer;
     private readonly Socket: ws;
     private readonly BinaryOptions: object;
 
-    private RtcSource: any;
     private RtcPeer: RTCPeerConnection;
     private RtcTrack: any;
-    
+
     constructor(server: StreamServer, socket: ws) {
         this.Server = server;
         this.Socket = socket;
@@ -47,29 +119,33 @@ class StreamClient {
             compress: false,
             binary: true
         };
-        
+
         this.Socket.on('error', this.OnError.bind(this));
         this.Socket.on('message', this.OnMessage.bind(this));
     }
 
-    private OnMessage(message: ws.Data, isBinary: boolean) {
+    private OnMessage(message: ws.Data, isBinary: boolean): void {
         try {
             let request: any = JSON.parse(message.toString());
-            
-            if(request.type == "answer")
-            {
+
+            if (request.type == "answer") {
                 (async () => await this.RtcPeer.setRemoteDescription(new wrtc.RTCSessionDescription(request.data)))();
             }
-            else if(request.type == "webrtc")
-            {
+            else if (request.type == "webrtc") {
                 this.Server.SetWebRtc(this);
             }
-            else if (request.type == "fallback")
-            {
+            else if (request.type == "fallback") {
                 this.Server.SetFallback(this, request.data)
             }
-            else
-            {
+            else if (request.type == "stats") {
+                if (Settings.AdminKey && request.data == Settings.AdminKey) {
+                    this.SendText(JSON.stringify({
+                        "type": "stats",
+                        "data": this.Server.GetStats(),
+                    }));
+                }
+            }
+            else {
                 this.OnError(null);
                 return;
             }
@@ -80,40 +156,31 @@ class StreamClient {
         }
     }
 
-    private OnError(_err: Error) {
+    private OnError(_err: Error): void {
         this.Server.DestroyClient(this);
     }
 
-    public Destroy() {
+    public Destroy(): void {
         try {
             this.Socket.close();
         }
         catch (ex) {
         }
-        
-        if(this.RtcTrack && this.RtcPeer)
+
+        if (this.RtcTrack && this.RtcPeer)
             this.RtcPeer.removeTrack(this.RtcTrack);
 
-        if(this.RtcTrack) {
-            this.RtcTrack.stop();
-            delete this.RtcTrack;
+        if (this.RtcTrack)
             this.RtcTrack = null;
-        }
 
-        if(this.RtcPeer) {
+        if (this.RtcPeer) {
             this.RtcPeer.close();
             delete this.RtcPeer;
             this.RtcPeer = null;
         }
-        
-        if(this.RtcSource){
-            this.RtcSource.close();
-            delete this.RtcSource;
-            this.RtcSource = null;
-        }
     }
 
-    public SendBinary (buffer: Buffer) {
+    public SendBinary(buffer: Buffer): void {
         if (this.Socket.readyState != ws.OPEN) {
             this.OnError(null);
             return;
@@ -122,7 +189,7 @@ class StreamClient {
         this.Socket.send(buffer, this.BinaryOptions);
     }
 
-    public SendText (text: string) {
+    public SendText(text: string): void {
         if (this.Socket.readyState != ws.OPEN) {
             this.OnError(null);
             return;
@@ -131,15 +198,13 @@ class StreamClient {
         this.Socket.send(text);
     }
 
-    public async StartRtc(): Promise<void> {
-        this.RtcSource = new wrtc.nonstandard.RTCAudioSource();
-
+    public async StartRtc(track: any): Promise<void> {
         this.RtcPeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
 
-        this.RtcTrack = this.RtcSource.createTrack();
+        this.RtcTrack = track;
 
         this.RtcPeer.addTrack(this.RtcTrack);
-        
+
         this.RtcPeer.onicecandidate = this.OnIceCandidate.bind(this);
 
         let offer = await this.RtcPeer.createOffer();
@@ -149,18 +214,11 @@ class StreamClient {
         this.SendText(JSON.stringify({
             "type": "offer",
             "data": offer
-        }),);
+        }));
     }
 
-    public InsertRtcData(data: any) {
-        if(!this.RtcSource)
-            return;
-        this.RtcSource.onData(data);
-    }
-
-    private OnIceCandidate(e: any) {
-        if (e.candidate)
-        {
+    private OnIceCandidate(e: any): void {
+        if (e.candidate) {
             this.SendText(JSON.stringify({
                 "type": "candidate",
                 "data": e.candidate
@@ -174,13 +232,14 @@ class StreamServer {
     public readonly Channels: number;
     public readonly SampleRate: number;
 
-    private readonly FallbackProvider: Record<"wav"|"mp3", AFallbackProvider>;
+    private readonly FallbackProvider: Record<"wav" | "mp3", AFallbackProvider>;
     private readonly Clients: Set<StreamClient>;
     private readonly RtcClients: Set<StreamClient>;
-    private readonly FallbackClients: Record<"wav"|"mp3", Set<StreamClient>>;
+    private readonly FallbackClients: Record<"wav" | "mp3", Set<StreamClient>>;
     private readonly StdIn: ReadStream;
-    
-    private SamplesPosition: number; 
+    private readonly RtcProvider: RtcProvider;
+
+    private SamplesPosition: number;
     private Samples: Int16Array;
     private SamplesCount: number;
     private Server: ws.Server;
@@ -190,6 +249,7 @@ class StreamServer {
         this.Channels = channels;
         this.SampleRate = sampleRate;
 
+        this.RtcProvider = new RtcProvider();
         this.Clients = new Set<StreamClient>();
         this.RtcClients = new Set<StreamClient>();
         this.FallbackClients = {
@@ -197,13 +257,13 @@ class StreamServer {
             "mp3": new Set<StreamClient>()
         };
 
-        this.FallbackProvider = {} as Record<"wav"|"mp3", AFallbackProvider>;
+        this.FallbackProvider = {} as Record<"wav" | "mp3", AFallbackProvider>;
 
-        if(Settings.FallbackUseMp3) {
+        if (Settings.FallbackUseMp3) {
             this.FallbackProvider["mp3"] = AFallbackProvider.Create(this, "mp3");
         }
 
-        if(Settings.FallbackUseWav) {
+        if (Settings.FallbackUseWav) {
             this.FallbackProvider["wav"] = AFallbackProvider.Create(this, "wav");
         }
 
@@ -227,31 +287,27 @@ class StreamServer {
         this.StdIn.resume();
     }
 
-    public BroadcastBinary(format: "wav"|"mp3", buffer: Buffer) {
+    public BroadcastBinary(format: "wav" | "mp3", buffer: Buffer): void {
         this.FallbackClients[format].forEach((function each(client: StreamClient) {
             client.SendBinary(buffer);
         }).bind(this))
     }
 
     private OnStdInData(buffer: Buffer): void {
-        for (let i = 0; i < buffer.length; i += 2)
-        {
+        for (let i = 0; i < buffer.length; i += 2) {
             this.Samples[this.SamplesPosition] = buffer.readInt16LE(i);
             this.SamplesPosition++;
-            
-            if (this.SamplesPosition >= this.Samples.length)
-            {
+
+            if (this.SamplesPosition >= this.Samples.length) {
                 let data = {
                     "samples": this.Samples,
                     "sampleRate": this.SampleRate,
                     "bitsPerSample": 16,
-                    "channelCount" : this.Channels,
-                    "numberOfFrames" : this.SamplesCount,
+                    "channelCount": this.Channels,
+                    "numberOfFrames": this.SamplesCount,
                 };
 
-                this.RtcClients.forEach((function each(client: StreamClient) {
-                    client.InsertRtcData(data);
-                }).bind(this))
+                this.RtcProvider.InsertMediaData(data);
 
                 this.Samples = new Int16Array(this.Channels * this.SamplesCount);
                 this.SamplesPosition = 0;
@@ -259,7 +315,7 @@ class StreamServer {
         }
 
         for (let format in this.FallbackProvider) {
-            this.FallbackProvider[(format as "wav"|"mp3")].InsertData(buffer);
+            this.FallbackProvider[(format as "wav" | "mp3")].InsertData(buffer);
         }
     }
 
@@ -268,7 +324,7 @@ class StreamServer {
     }
 
     public SetFallback(client: StreamClient, format: string): void {
-        if(format != "mp3" && format != "wav") {
+        if (format != "mp3" && format != "wav") {
             this.DestroyClient(client);
             return;
         }
@@ -277,13 +333,13 @@ class StreamServer {
 
         this.FallbackProvider[format].PrimeClient(client);
     }
-        
-    public SetWebRtc(client: StreamClient) {
+
+    public SetWebRtc(client: StreamClient): void {
         this.RtcClients.add(client);
-        client.StartRtc();
+        client.StartRtc(this.RtcProvider.GetTrack());
     }
 
-    public DestroyClient(client: StreamClient) : void {
+    public DestroyClient(client: StreamClient): void {
         this.FallbackClients["mp3"].delete(client);
         this.FallbackClients["wav"].delete(client);
         this.RtcClients.delete(client);
@@ -291,7 +347,26 @@ class StreamServer {
         client.Destroy();
     }
 
-    public static Create(options: Record<string, number>) {
+    public GetStats(): IStats {
+        let rtc: number = this.RtcClients.size;
+        let fallback: Record<"wav" | "mp3", number> = {
+            "wav": (this.FallbackClients["wav"] ? this.FallbackClients["wav"].size : 0),
+            "mp3": (this.FallbackClients["mp3"] ? this.FallbackClients["mp3"].size : 0),
+        }
+        let total: number = rtc;
+
+        for (let format in fallback) {
+            total += fallback[(format as "wav" | "mp3")];
+        }
+
+        return {
+            "Total": total,
+            "Rtc": rtc,
+            "Fallback": fallback,
+        };
+    }
+
+    public static Create(options: Record<string, number>): StreamServer {
 
         if (!options["-port"])
             throw new Error("Port undefined. Please use -port to define the port.");
@@ -301,7 +376,7 @@ class StreamServer {
 
         if (!options["-channels"])
             throw new Error("Channels undefined. Please use -channels to define the number of channels.");
-        
+
         if (typeof options["-channels"] !== "number" || options["-channels"] !== Math.floor(options["-channels"]) ||
             !(options["-channels"] == 1 || options["-channels"] == 2))
             throw new Error("Invalid channels. Must be either 1 or 2.");
@@ -309,7 +384,7 @@ class StreamServer {
         if (!options["-samplerate"])
             throw new Error("Sample rate undefined. Please use -samplerate to define the sample rate.");
 
-        if (typeof options["-samplerate"] !== "number" || options["-samplerate"] !== Math.floor(options["-samplerate"]) || options["-samplerate"] < 1 )
+        if (typeof options["-samplerate"] !== "number" || options["-samplerate"] !== Math.floor(options["-samplerate"]) || options["-samplerate"] < 1)
             throw new Error("Invalid sample rate. Must be natural number greater than 0.");
 
         return new StreamServer(options["-port"], options["-channels"], options["-samplerate"]);
@@ -322,11 +397,11 @@ abstract class AFallbackProvider {
 
     constructor(server: StreamServer) {
         this.Server = server;
-        this.Process = spawn(FFmpeg_command, this.GetFFmpegArguments(), {shell: false, detached: false, stdio: ['pipe', 'pipe', 'ignore']});
+        this.Process = spawn(FFmpeg_command, this.GetFFmpegArguments(), { shell: false, detached: false, stdio: ['pipe', 'pipe', 'ignore'] });
         this.Process.stdout.addListener('data', this.OnData.bind(this));
     }
 
-    public InsertData(buffer: Buffer) {
+    public InsertData(buffer: Buffer): void {
         this.Process.stdin.write(buffer);
     }
 
@@ -336,8 +411,8 @@ abstract class AFallbackProvider {
 
     public abstract PrimeClient(client: StreamClient): void;
 
-    public static Create(server: StreamServer, format: "wav"|"mp3"): AFallbackProvider {
-        
+    public static Create(server: StreamServer, format: "wav" | "mp3"): AFallbackProvider {
+
         if (format == "mp3") {
             return new FallbackProviderMp3(server);
         }
@@ -401,7 +476,7 @@ class FallbackProviderWav extends AFallbackProvider {
             "-ac", this.Server.Channels.toString(),
             "-i", "pipe:0",
             "-c:a", "pcm_s16le",
-            "-ar",  Settings.FallbackWavSampleRate.toString(),
+            "-ar", Settings.FallbackWavSampleRate.toString(),
             "-ac", "1",
             "-f", "wav",
             "-flush_packets", "1", "-fflags", "+nobuffer", "-chunk_size", "384", "-packetsize", "384",
@@ -432,17 +507,17 @@ class FallbackProviderWav extends AFallbackProvider {
             }
         }
     }
-    
+
     public PrimeClient(client: StreamClient): void {
         let headerBuffer: Array<Buffer> = this.HeaderBuffer;
-    
+
         for (let i: number = 0; i < headerBuffer.length; i++) {
             client.SendBinary(headerBuffer[i]);
         }
     }
 }
 
-const OptionParser: Record<string,(txt: string) => (number)> = {
+const OptionParser: Record<string, (txt: string) => (number)> = {
     "-port": function (txt: string) { return parseInt(txt, 10); },
     "-channels": function (txt: string) { return parseInt(txt, 10); },
     "-samplerate": function (txt: string) { return parseInt(txt, 10); }

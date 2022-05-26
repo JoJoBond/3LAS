@@ -1,13 +1,11 @@
-class _3LAS_Settings
-{
+class _3LAS_Settings {
     public SocketHost: string;
     public SocketPort: number;
     public SocketPath: string;
     public WebRTC: WebRTC_Settings
     public Fallback: Fallback_Settings;
 
-    constructor()
-    {
+    constructor() {
         this.SocketHost = document.location.hostname ? document.location.hostname : "127.0.0.1";
         this.SocketPort = 8080;
         this.SocketPath = "/";
@@ -22,25 +20,22 @@ class _3LAS {
 
     private readonly Logger: Logging;
     private readonly Settings: _3LAS_Settings;
-    
+
     private WebSocket: WebSocketClient;
-    private ConnectivityFlag:  boolean;
+    private ConnectivityFlag: boolean;
 
     private readonly WebRTC: WebRTC;
     private readonly Fallback: Fallback;
 
-    constructor(logger: Logging, settings: _3LAS_Settings)
-    {
+    constructor(logger: Logging, settings: _3LAS_Settings) {
         this.Logger = logger;
-        if(!this.Logger)
-        {
+        if (!this.Logger) {
             this.Logger = new Logging(null, null);
         }
 
         this.Settings = settings;
 
-        try
-        {
+        try {
             this.WebRTC = new WebRTC(this.Logger, this.Settings.WebRTC);
             this.WebRTC.ActivityCallback = this.OnActivity.bind(this);
             this.WebRTC.DisconnectCallback = this.OnSocketDisconnect.bind(this);
@@ -50,10 +45,8 @@ class _3LAS {
             this.WebRTC = null;
         }
 
-        if(this.WebRTC == null)
-        {
-            try
-            {
+        if (this.WebRTC == null) {
+            try {
                 this.Fallback = new Fallback(this.Logger, this.Settings.Fallback);
                 this.Fallback.ActivityCallback = this.OnActivity.bind(this);
             }
@@ -63,34 +56,29 @@ class _3LAS {
             }
         }
 
-        if(this.WebRTC == null && this.Fallback == null)
-        {
+        if (this.WebRTC == null && this.Fallback == null) {
             this.Logger.Log('3LAS: Browser does not support either media handling methods.');
             throw new Error();
         }
     }
 
-    public set Volume(value: number)
-    {
-        if(this.WebRTC)
+    public set Volume(value: number) {
+        if (this.WebRTC)
             this.WebRTC.Volume = value;
         else
             this.Fallback.Volume = value;
     }
 
-    public get Volume(): number
-    {
-        if(this.WebRTC)
+    public get Volume(): number {
+        if (this.WebRTC)
             return this.WebRTC.Volume;
         else
             return this.Fallback.Volume;
     }
 
-    public Start(): void
-    {
+    public Start(): void {
         this.ConnectivityFlag = false;
-        try
-        {
+        try {
             this.WebSocket = new WebSocketClient(
                 this.Logger,
                 'ws://' + this.Settings.SocketHost + ':' + this.Settings.SocketPort.toString() + this.Settings.SocketPath,
@@ -102,83 +90,75 @@ class _3LAS {
             this.Logger.Log("Init of WebSocketClient succeeded");
             this.Logger.Log("Trying to connect to server.");
         }
-        catch (e)
-        {
+        catch (e) {
             this.Logger.Log("Init of WebSocketClient failed: " + e);
             throw new Error();
         }
     }
 
-    private OnActivity(): void
-    {
-        if(this.ActivityCallback)
+    private OnActivity(): void {
+        if (this.ActivityCallback)
             this.ActivityCallback();
 
-        if(!this.ConnectivityFlag)
-        {
+        if (!this.ConnectivityFlag) {
             this.ConnectivityFlag = true;
-            
-            if(this.ConnectivityCallback)
+
+            if (this.ConnectivityCallback)
                 this.ConnectivityCallback(true);
         }
     }
 
     // Callback function from socket connection
-    private OnSocketError(message: string): void
-    {
+    private OnSocketError(message: string): void {
         this.Logger.Log("Network error: " + message);
 
-        if(this.WebRTC)
+        if (this.WebRTC)
             this.WebRTC.OnSocketError(message);
         else
             this.Fallback.OnSocketError(message);
     }
-    
-    private OnSocketConnect(): void
-    {
+
+    private OnSocketConnect(): void {
         this.Logger.Log("Established connection with server.");
-        
-        if(this.WebRTC)
+
+        if (this.WebRTC)
             this.WebRTC.OnSocketConnect();
         else
             this.Fallback.OnSocketConnect();
 
-            
-        if(this.WebRTC)
+
+        if (this.WebRTC)
             this.WebRTC.Init(this.WebSocket);
         else
             this.Fallback.Init(this.WebSocket);
     }
-    
-    private OnSocketDisconnect(): void
-    {
+
+    private OnSocketDisconnect(): void {
         this.Logger.Log("Lost connection to server.");
-        
-        if(this.WebRTC)
+
+        if (this.WebRTC)
             this.WebRTC.OnSocketDisconnect();
         else
             this.Fallback.OnSocketDisconnect();
 
-        if(this.WebRTC)
+        if (this.WebRTC)
             this.WebRTC.Reset();
         else
             this.Fallback.Reset();
 
 
-        if(this.ConnectivityFlag)
-        {
+        if (this.ConnectivityFlag) {
             this.ConnectivityFlag = false;
-            
-            if(this.ConnectivityCallback)
+
+            if (this.ConnectivityCallback)
                 this.ConnectivityCallback(false);
         }
 
         this.Start();
     }
-    
-    private OnSocketDataReady(data: ArrayBuffer|string): void
-    {
-        if(this.WebRTC)
+
+    private OnSocketDataReady(data: ArrayBuffer | string): void {
+        if (this.WebRTC)
             this.WebRTC.OnSocketDataReady(data);
         else
             this.Fallback.OnSocketDataReady(<ArrayBuffer>data);

@@ -1,6 +1,6 @@
 /*
-	Live audio player is part of 3LAS (Low Latency Live Audio Streaming)
-	https://github.com/JoJoBond/3LAS
+    Live audio player is part of 3LAS (Low Latency Live Audio Streaming)
+    https://github.com/JoJoBond/3LAS
 */
 
 class LiveAudioPlayer {
@@ -24,7 +24,7 @@ class LiveAudioPlayer {
     private NextScheduleTime: number;
     private Amplification: GainNode;
 
-    constructor(audio: AudioContext, logger: Logging, maxVolume: number = 1.0, startOffset: number = 0.33, variableSpeed: boolean = false){
+    constructor(audio: AudioContext, logger: Logging, maxVolume: number = 1.0, startOffset: number = 0.33, variableSpeed: boolean = false) {
         this.Audio = audio;
         this.Logger = logger;
         this.MaxVolume = maxVolume;
@@ -34,7 +34,7 @@ class LiveAudioPlayer {
         this.OffsetMin = this.StartOffset - LiveAudioPlayer.OffsetVariance;
         this.OffsetMax = this.StartOffset + LiveAudioPlayer.OffsetVariance;
 
-	    // Set speed to default
+        // Set speed to default
         this.PlaybackSpeed = 1.0;
 
         // Reset variable for scheduling times
@@ -45,7 +45,7 @@ class LiveAudioPlayer {
 
         // Set volume to max
         this.Amplification.gain.value = 1.0;
-        
+
         // Connect gain node to context
         this.Amplification.connect(this.Audio.destination);
     }
@@ -56,10 +56,10 @@ class LiveAudioPlayer {
             value = this.MaxVolume;
         else if (value <= 0.0)
             value = 1e-20;
-    
+
         // Cancel any scheduled ramps
         this.Amplification.gain.cancelScheduledValues(this.Audio.currentTime);
-    
+
         // Change volume following a ramp (more userfriendly)
         this.Amplification.gain.exponentialRampToValueAtTime(value, this.Audio.currentTime + 0.5);
     }
@@ -77,9 +77,9 @@ class LiveAudioPlayer {
             // Start playing [StartOffset] s from now
             this.NextScheduleTime = this.Audio.currentTime + this.StartOffset;
         }
-        
+
         let duration: number
-        if(this.VariableSpeed)
+        if (this.VariableSpeed)
             duration = buffer.duration / this.PlaybackSpeed; // Use regular duration
         else
             duration = buffer.duration; // Use duration adjusted for playback speed
@@ -179,9 +179,9 @@ class LiveAudioPlayer {
     }
 
     public CheckBeforeDecode(playbackLength: number): boolean {
-        if(this.NextScheduleTime == 0)
+        if (this.NextScheduleTime == 0)
             return true;
-            
+
         return this.NextScheduleTime + playbackLength > this.Audio.currentTime;
     }
 }

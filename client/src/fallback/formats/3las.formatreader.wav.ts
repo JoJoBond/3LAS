@@ -1,6 +1,6 @@
 /*
-	WAV audio format reader is part of 3LAS (Low Latency Live Audio Streaming)
-	https://github.com/JoJoBond/3LAS
+    WAV audio format reader is part of 3LAS (Low Latency Live Audio Streaming)
+    https://github.com/JoJoBond/3LAS
 */
 
 class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatReader {
@@ -9,44 +9,43 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
 
     // Stores if we have a header already
     private GotHeader: boolean;
-    
+
     // Stores the RIFF header
     private RiffHeader: Uint8Array;
-    
+
     // Stores sample rate from RIFF header
     private WaveSampleRate: number;
-    
+
     // Stores bit depth from RIFF header
     private WaveBitsPerSample: number;
     private WaveBytesPerSample: number;
-    
+
     // Stores the size of a single datablock
     private WaveBlockAlign: number;
-    
+
     // Stores number of channels from RIFF header
     private WaveChannels: number;
-    
+
     // Stores the actual size of each batch in samples
     private BatchSamples: number;
-    
+
     // Stores the actual size of each batch in bytes
     private BatchBytes: number;
-    
+
     // Stores the actual size of the edge samples
     private ExtraEdgeSamples: number;
-    
+
     // Stores the total batch size in samples
     private TotalBatchSampleSize: number;
-    
+
     // Stores the total batch size in bytes (without the header)
     private TotalBatchByteSize: number;
-    
+
     // Stores lost/missing samples over time to correct when a sample rate conversion is happening
     private SampleBudget: number;
 
 
-    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean,  dataReadyCallback: () => void, batchDuration: number, extraEdgeDuration: number)
-    {
+    constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean, dataReadyCallback: () => void, batchDuration: number, extraEdgeDuration: number) {
         super(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback);
 
         this._OnDecodeSuccess = this.OnDecodeSuccess.bind(this);
@@ -54,7 +53,7 @@ class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatRea
 
         this.BatchDuration = batchDuration;
         this.ExtraEdgeDuration = extraEdgeDuration;
-            
+
         this.GotHeader = false;
         this.RiffHeader = null;
         this.WaveSampleRate = 0;

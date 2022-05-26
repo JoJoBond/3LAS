@@ -43,7 +43,52 @@ const FFmpeg_command = (() => {
     else if (process.platform === 'linux')
         return "ffmpeg";
 })();
-var test = false;
+class RtcProvider {
+    constructor() {
+        this.RtcDistributePeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
+        this.RtcDistributePeer.addTransceiver('audio');
+        this.RtcDistributePeer.ontrack = this.OnTrack.bind(this);
+        this.RtcDistributePeer.onicecandidate = this.OnIceCandidate_Distribute.bind(this);
+        this.RtcSourcePeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
+        this.RtcSourceMediaSource = new wrtc.nonstandard.RTCAudioSource();
+        this.RtcSourceTrack = this.RtcSourceMediaSource.createTrack();
+        this.RtcSourcePeer.addTrack(this.RtcSourceTrack);
+        this.RtcSourcePeer.onicecandidate = this.OnIceCandidate_Source.bind(this);
+        this.Init();
+    }
+    Init() {
+        return __awaiter(this, void 0, void 0, function* () {
+            let offer = yield this.RtcSourcePeer.createOffer();
+            yield this.RtcSourcePeer.setLocalDescription(new wrtc.RTCSessionDescription(offer));
+            yield this.RtcDistributePeer.setRemoteDescription(offer);
+            let answer = yield this.RtcDistributePeer.createAnswer();
+            yield this.RtcDistributePeer.setLocalDescription(new wrtc.RTCSessionDescription(answer));
+            yield this.RtcSourcePeer.setRemoteDescription(new wrtc.RTCSessionDescription(answer));
+        });
+    }
+    OnTrack(event) {
+        this.RtcDistributeTrack = event.track;
+        console.log(event.track);
+    }
+    OnIceCandidate_Distribute(e) {
+        if (!e.candidate)
+            return;
+        (() => __awaiter(this, void 0, void 0, function* () { return yield this.RtcSourcePeer.addIceCandidate(e.candidate); }))();
+    }
+    OnIceCandidate_Source(e) {
+        if (!e.candidate)
+            return;
+        (() => __awaiter(this, void 0, void 0, function* () { return yield this.RtcDistributePeer.addIceCandidate(e.candidate); }))();
+    }
+    InsertMediaData(data) {
+        if (!this.RtcSourceMediaSource)
+            return;
+        this.RtcSourceMediaSource.onData(data);
+    }
+    GetTrack() {
+        return this.RtcDistributeTrack;
+    }
+}
 class StreamClient {
     constructor(server, socket) {
         this.Server = server;
@@ -67,6 +112,14 @@ class StreamClient {
             else if (request.type == "fallback") {
                 this.Server.SetFallback(this, request.data);
             }
+            else if (request.type == "stats") {
+                if (Settings.AdminKey && request.data == Settings.AdminKey) {
+                    this.SendText(JSON.stringify({
+                        "type": "stats",
+                        "data": this.Server.GetStats(),
+                    }));
+                }
+            }
             else {
                 this.OnError(null);
                 return;
@@ -88,20 +141,12 @@ class StreamClient {
         }
         if (this.RtcTrack && this.RtcPeer)
             this.RtcPeer.removeTrack(this.RtcTrack);
-        if (this.RtcTrack) {
-            this.RtcTrack.stop();
-            delete this.RtcTrack;
+        if (this.RtcTrack)
             this.RtcTrack = null;
-        }
         if (this.RtcPeer) {
             this.RtcPeer.close();
             delete this.RtcPeer;
             this.RtcPeer = null;
-        }
-        if (this.RtcSource) {
-            this.RtcSource.close();
-            delete this.RtcSource;
-            this.RtcSource = null;
         }
     }
     SendBinary(buffer) {
@@ -118,11 +163,10 @@ class StreamClient {
         }
         this.Socket.send(text);
     }
-    StartRtc() {
+    StartRtc(track) {
         return __awaiter(this, void 0, void 0, function* () {
-            this.RtcSource = new wrtc.nonstandard.RTCAudioSource();
             this.RtcPeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
-            this.RtcTrack = this.RtcSource.createTrack();
+            this.RtcTrack = track;
             this.RtcPeer.addTrack(this.RtcTrack);
             this.RtcPeer.onicecandidate = this.OnIceCandidate.bind(this);
             let offer = yield this.RtcPeer.createOffer();
@@ -132,11 +176,6 @@ class StreamClient {
                 "data": offer
             }));
         });
-    }
-    InsertRtcData(data) {
-        if (!this.RtcSource)
-            return;
-        this.RtcSource.onData(data);
     }
     OnIceCandidate(e) {
         if (e.candidate) {
@@ -152,6 +191,7 @@ class StreamServer {
         this.Port = port;
         this.Channels = channels;
         this.SampleRate = sampleRate;
+        this.RtcProvider = new RtcProvider();
         this.Clients = new Set();
         this.RtcClients = new Set();
         this.FallbackClients = {
@@ -197,9 +237,7 @@ class StreamServer {
                     "channelCount": this.Channels,
                     "numberOfFrames": this.SamplesCount,
                 };
-                this.RtcClients.forEach((function each(client) {
-                    client.InsertRtcData(data);
-                }).bind(this));
+                this.RtcProvider.InsertMediaData(data);
                 this.Samples = new Int16Array(this.Channels * this.SamplesCount);
                 this.SamplesPosition = 0;
             }
@@ -221,7 +259,7 @@ class StreamServer {
     }
     SetWebRtc(client) {
         this.RtcClients.add(client);
-        client.StartRtc();
+        client.StartRtc(this.RtcProvider.GetTrack());
     }
     DestroyClient(client) {
         this.FallbackClients["mp3"].delete(client);
@@ -229,6 +267,22 @@ class StreamServer {
         this.RtcClients.delete(client);
         this.Clients.delete(client);
         client.Destroy();
+    }
+    GetStats() {
+        let rtc = this.RtcClients.size;
+        let fallback = {
+            "wav": (this.FallbackClients["wav"] ? this.FallbackClients["wav"].size : 0),
+            "mp3": (this.FallbackClients["mp3"] ? this.FallbackClients["mp3"].size : 0),
+        };
+        let total = rtc;
+        for (let format in fallback) {
+            total += fallback[format];
+        }
+        return {
+            "Total": total,
+            "Rtc": rtc,
+            "Fallback": fallback,
+        };
     }
     static Create(options) {
         if (!options["-port"])

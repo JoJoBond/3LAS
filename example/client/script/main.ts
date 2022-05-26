@@ -24,33 +24,33 @@ function Init(_ev: Event): void {
     // Load default settings
     let settings: _3LAS_Settings = new _3LAS_Settings();
 
-    if(typeof RtcConfig == 'undefined')
+    if (typeof RtcConfig == 'undefined')
         RtcConfig = {};
 
     settings.WebRTC.RtcConfig = RtcConfig;
 
-    if(typeof SocketPort != 'undefined')
+    if (typeof SocketPort != 'undefined')
         settings.SocketPort = SocketPort;
 
-    if(typeof SocketPath != 'undefined')
+    if (typeof SocketPath != 'undefined')
         settings.SocketPath = SocketPath;
 
-    if(typeof AudioTagId == 'undefined')
+    if (typeof AudioTagId == 'undefined')
         settings.WebRTC.AudioTag = null;
     else
         settings.WebRTC.AudioTag = <HTMLAudioElement>document.getElementById(AudioTagId);
 
-    try{
+    try {
         Stream = new _3LAS(logger, settings);
     }
-    catch(_ex){
+    catch (_ex) {
         document.getElementById("webaudiounsupported").style.display = "block";
         return;
     }
 
     Stream.ConnectivityCallback = OnConnectivityCallback;
     Stream.ActivityCallback = OnActivityCallback;
-    
+
     document.getElementById("unmutebutton").onclick = OnUnmuteButtonClick;
     document.getElementById("mutebutton").onclick = OnMuteButtonClick;
     document.getElementById("playbutton").onclick = OnPlayButtonClick;
@@ -58,7 +58,7 @@ function Init(_ev: Event): void {
     let volumebar: HTMLElement = document.getElementById("volumebar");
     volumebar.addEventListener("touchstart", OnVolumeBarDragBegin);
     volumebar.addEventListener("mousedown", OnVolumeBarDragBegin);
-    
+
     document.getElementById("viewcontainer").style.display = "block";
 }
 
@@ -69,12 +69,11 @@ function OnLogWindowButtonClick(_ev: MouseEvent): void {
 
 function OnConnectivityCallback(isConnected: boolean): void {
     if (isConnected) {
-        if(DefaultVolume >= 0)
-        {
+        if (DefaultVolume >= 0) {
             Stream.Volume = DefaultVolume;
             DefaultVolume = -1;
         }
-        
+
         document.getElementById("volumebar").style.visibility = "visible";
         document.getElementById("controlbar").style.visibility = "visible";
         document.getElementById("playbutton").style.visibility = "hidden";
@@ -111,7 +110,7 @@ var OldVolume: number = 0;
 function OnMuteButtonClick(_ev: MouseEvent): void {
     document.getElementById("unmutebutton").style.visibility = "visible";
     document.getElementById("mutebutton").style.visibility = "hidden";
-    
+
     OldVolume = Stream.Volume;
     Stream.Volume = 0.0;
 
@@ -128,10 +127,10 @@ function OnUnmuteButtonClick(_ev: MouseEvent): void {
 }
 
 function OnPlayButtonClick(_ev: MouseEvent): void {
-    try{
+    try {
         Stream.Start();
     }
-    catch(_ex){
+    catch (_ex) {
     }
 }
 
@@ -140,62 +139,62 @@ function UpdateVolumeBar(left: number): void {
     document.getElementById("currentvolume").style.width = left + "px";
 }
 
-function OnVolumeBarDragBegin (ev: MouseEvent|TouchEvent): void {
+function OnVolumeBarDragBegin(ev: MouseEvent | TouchEvent): void {
     document.getElementById("mutebutton").style.visibility = "visible";
     document.getElementById("unmutebutton").style.visibility = "hidden";
 
     ev.currentTarget.addEventListener("touchmove", OnVolumeBarDragMove);
     ev.currentTarget.addEventListener("mousemove", OnVolumeBarDragMove);
-    
+
     ev.currentTarget.addEventListener("touchend", OnVolumeBarDragEnd);
     ev.currentTarget.addEventListener("mouseup", OnVolumeBarDragEnd);
-    
+
     ev.currentTarget.addEventListener("touchcancel", OnVolumeBarDragLeave);
     ev.currentTarget.addEventListener("mouseleave", OnVolumeBarDragLeave);
 
     OnVolumeBarDragMove(ev);
 }
 
-function OnVolumeBarDragEnd(ev: MouseEvent|TouchEvent): void {
+function OnVolumeBarDragEnd(ev: MouseEvent | TouchEvent): void {
     ev.currentTarget.removeEventListener("touchmove", OnVolumeBarDragMove);
     ev.currentTarget.removeEventListener("mousemove", OnVolumeBarDragMove);
-    
+
     ev.currentTarget.removeEventListener("touchend", OnVolumeBarDragEnd);
     ev.currentTarget.removeEventListener("mouseup", OnVolumeBarDragEnd);
-    
+
     ev.currentTarget.removeEventListener("touchcancel", OnVolumeBarDragLeave);
     ev.currentTarget.removeEventListener("mouseleave", OnVolumeBarDragLeave);
-    
+
     OnVolumeBarDragMove(ev);
 }
 
-function OnVolumeBarDragLeave(ev: MouseEvent|TouchEvent): void {
+function OnVolumeBarDragLeave(ev: MouseEvent | TouchEvent): void {
     ev.currentTarget.removeEventListener("touchmove", OnVolumeBarDragMove);
     ev.currentTarget.removeEventListener("mousemove", OnVolumeBarDragMove);
-    
+
     ev.currentTarget.removeEventListener("touchend", OnVolumeBarDragEnd);
     ev.currentTarget.removeEventListener("mouseup", OnVolumeBarDragEnd);
-    
+
     ev.currentTarget.removeEventListener("touchcancel", OnVolumeBarDragLeave);
     ev.currentTarget.removeEventListener("mouseleave", OnVolumeBarDragLeave);
 }
 
-function OnVolumeBarDragMove(ev: MouseEvent|TouchEvent): void {
+function OnVolumeBarDragMove(ev: MouseEvent | TouchEvent): void {
     let clientX: number;
-    if(ev instanceof MouseEvent) {
+    if (ev instanceof MouseEvent) {
         clientX = (<MouseEvent>ev).clientX;
     }
     else {
-        if( (<TouchEvent>ev).touches.length <= 0)
+        if ((<TouchEvent>ev).touches.length <= 0)
             return;
         clientX = (<TouchEvent>ev).touches[0].clientX;
     }
-    
+
     let rect: DOMRect = (<HTMLElement>ev.currentTarget).getBoundingClientRect();
 
     let left: number = clientX - rect.left;
 
-    if(left <0)
+    if (left < 0)
         left = 0;
     else if (left > rect.width)
         left = rect.width;

@@ -1,10 +1,10 @@
 /*
-	WebSocket client is part of 3LAS (Low Latency Live Audio Streaming)
-	https://github.com/JoJoBond/3LAS
+    WebSocket client is part of 3LAS (Low Latency Live Audio Streaming)
+    https://github.com/JoJoBond/3LAS
 */
 
-declare class webkitWebSocket extends WebSocket {}
-declare class mozWebSocket extends WebSocket {}
+declare class webkitWebSocket extends WebSocket { }
+declare class mozWebSocket extends WebSocket { }
 
 class WebSocketClient {
     private readonly Logger: Logging;
@@ -38,7 +38,7 @@ class WebSocketClient {
 
         // Client is not yet connected
         this.IsConnected = false;
-        
+
         // Create socket, connect to URI
         if (typeof WebSocket !== "undefined")
             this.Socket = new WebSocket(this.Uri);
@@ -48,7 +48,7 @@ class WebSocketClient {
             this.Socket = new mozWebSocket(this.Uri);
         else
             throw new Error('WebSocketClient: Browser does not support "WebSocket".');
-        
+
         this.Socket.binaryType = 'arraybuffer';
 
         this.Socket.addEventListener("open", this.OnOpen.bind(this));
@@ -61,8 +61,8 @@ class WebSocketClient {
         return this.IsConnected;
     }
 
-    public Send(message: string):void {
-        if(!this.IsConnected)
+    public Send(message: string): void {
+        if (!this.IsConnected)
             return;
 
         this.Socket.send(message);

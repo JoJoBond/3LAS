@@ -1,6 +1,6 @@
 /*
-	Audio format reader is part of 3LAS (Low Latency Live Audio Streaming)
-	https://github.com/JoJoBond/3LAS
+    Audio format reader is part of 3LAS (Low Latency Live Audio Streaming)
+    https://github.com/JoJoBond/3LAS
 */
 
 interface IAudioFormatReader {
@@ -16,7 +16,7 @@ abstract class AudioFormatReader implements IAudioFormatReader {
     protected readonly Audio: AudioContext;
     protected readonly Logger: Logging;
     protected readonly ErrorCallback: () => void;
-    protected readonly BeforeDecodeCheck:  (length: number) => boolean;
+    protected readonly BeforeDecodeCheck: (length: number) => boolean;
     protected readonly DataReadyCallback: () => void;
 
     // Unique ID for decoded buffers
@@ -33,7 +33,7 @@ abstract class AudioFormatReader implements IAudioFormatReader {
 
     // Data buffer for "raw" data
     protected DataBuffer: Uint8Array;
-    
+
 
     constructor(audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean, dataReadyCallback: () => void) {
         if (!audio)
@@ -42,13 +42,13 @@ abstract class AudioFormatReader implements IAudioFormatReader {
         // Check callback argument
         if (typeof errorCallback !== 'function')
             throw new Error('AudioFormatReader: errorCallback must be specified');
-    
+
         if (typeof beforeDecodeCheck !== 'function')
             throw new Error('AudioFormatReader: beforeDecodeCheck must be specified');
 
         if (typeof dataReadyCallback !== 'function')
             throw new Error('AudioFormatReader: dataReadyCallback must be specified');
-    
+
         this.Audio = audio;
         this.Logger = logger;
         this.ErrorCallback = errorCallback;
@@ -63,10 +63,10 @@ abstract class AudioFormatReader implements IAudioFormatReader {
     }
 
     // Pushes frame data into the buffer
-    public PushData(data: Uint8Array) {
+    public PushData(data: Uint8Array): void {
         // Append data to framedata buffer
         this.DataBuffer = this.ConcatUint8Array(this.DataBuffer, data);
-        
+
         // Try to extract frames
         this.ExtractAll();
     }
@@ -127,15 +127,15 @@ abstract class AudioFormatReader implements IAudioFormatReader {
 
     // Stores the converted bnuches of samples in right order
     protected OnDataReady(id: number, audioBuffer: AudioBuffer): void {
-        if(this.LastPushedId + 1 == id) {
+        if (this.LastPushedId + 1 == id) {
             // Push samples into array
             this.Samples.push(audioBuffer);
             this.LastPushedId++;
 
-            while(this.BufferStore[this.LastPushedId+1]) {
+            while (this.BufferStore[this.LastPushedId + 1]) {
                 // Push samples we decoded earlier in correct order
-                this.Samples.push(this.BufferStore[this.LastPushedId+1]);
-                delete this.BufferStore[this.LastPushedId+1];
+                this.Samples.push(this.BufferStore[this.LastPushedId + 1]);
+                delete this.BufferStore[this.LastPushedId + 1];
                 this.LastPushedId++;
             }
 
@@ -149,8 +149,7 @@ abstract class AudioFormatReader implements IAudioFormatReader {
     }
 
     // Used to concatenate two Uint8Array (b comes BEHIND a)
-    protected ConcatUint8Array (a: Uint8Array, b: Uint8Array): Uint8Array
-    {
+    protected ConcatUint8Array(a: Uint8Array, b: Uint8Array): Uint8Array {
         let tmp = new Uint8Array(a.length + b.length);
         tmp.set(a, 0);
         tmp.set(b, a.length);
@@ -164,9 +163,9 @@ abstract class AudioFormatReader implements IAudioFormatReader {
             let mimeType: string = mimeTypes[i];
 
             let answer: string = audioTag.canPlayType(mimeType);
-            if (answer != "probably" && answer != "maybe") 
+            if (answer != "probably" && answer != "maybe")
                 continue;
-            
+
             result = true;
             break;
         }
@@ -174,10 +173,10 @@ abstract class AudioFormatReader implements IAudioFormatReader {
         audioTag = null;
         return result;
     }
-    
-    public static DefaultSettings(): Record<string,Record<string, number|boolean>> {
-        let settings: Record<string,Record<string, number|boolean>> = {};
-        
+
+    public static DefaultSettings(): Record<string, Record<string, number | boolean>> {
+        let settings: Record<string, Record<string, number | boolean>> = {};
+
         // WAV
         settings["wav"] = {};
 
@@ -202,7 +201,7 @@ abstract class AudioFormatReader implements IAudioFormatReader {
         else
             settings["wav"]["ExtraEdgeDuration"] = 1 / 1000;
         */
-                
+
         // MPEG
         settings["mpeg"] = {};
 
@@ -220,15 +219,15 @@ abstract class AudioFormatReader implements IAudioFormatReader {
         return settings;
     }
 
-    public static Create(mime: string, audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean, dataReadyCallback: () => void, settings: Record<string,Record<string, number|boolean>> = null): IAudioFormatReader {
+    public static Create(mime: string, audio: AudioContext, logger: Logging, errorCallback: () => void, beforeDecodeCheck: (length: number) => boolean, dataReadyCallback: () => void, settings: Record<string, Record<string, number | boolean>> = null): IAudioFormatReader {
         if (typeof mime !== "string")
             throw new Error('CreateAudioFormatReader: Invalid MIME-Type, must be string');
 
-        if(!settings)
+        if (!settings)
             settings = this.DefaultSettings();
-        
+
         let fullMime: string = mime;
-        if(mime.indexOf("audio/pcm") == 0)
+        if (mime.indexOf("audio/pcm") == 0)
             mime = "audio/pcm";
 
         // Load format handler according to MIME-Type
@@ -239,10 +238,10 @@ abstract class AudioFormatReader implements IAudioFormatReader {
             case "audio/mpa-robust":
                 if (!AudioFormatReader.CanDecodeTypes(new Array("audio/mpeg", "audio/MPA", "audio/mpa-robust")))
                     throw new Error('CreateAudioFormatReader: Browser can not decode specified MIME-Type (' + mime + ')');
-    
+
                 return new AudioFormatReader_MPEG(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, <boolean>settings["mpeg"]["AddID3Tag"], <number>settings["mpeg"]["MinDecodeFrames"]);
                 break;
-            
+
             // Waveform Audio File Format
             case "audio/vnd.wave":
             case "audio/wav":
@@ -250,10 +249,10 @@ abstract class AudioFormatReader implements IAudioFormatReader {
             case "audio/x-wav":
                 if (!AudioFormatReader.CanDecodeTypes(new Array("audio/wav", "audio/wave")))
                     throw new Error('CreateAudioFormatReader: Browser can not decode specified MIME-Type (' + mime + ')');
-    
+
                 return new AudioFormatReader_WAV(audio, logger, errorCallback, beforeDecodeCheck, dataReadyCallback, <number>settings["wav"]["BatchDuration"], <number>settings["wav"]["ExtraEdgeDuration"]);
                 break;
-            
+
             // Unknown codec
             default:
                 throw new Error('CreateAudioFormatReader: Specified MIME-Type (' + mime + ') not supported');
