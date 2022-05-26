@@ -12,6 +12,8 @@
 var Stream: _3LAS;
 var DefaultVolume: number = 0.5;
 declare var RtcConfig: RTCConfiguration;
+declare var SocketPort: number;
+declare var SocketPath: string;
 declare var AudioTagId: string;
 
 function Init(_ev: Event): void {
@@ -26,6 +28,12 @@ function Init(_ev: Event): void {
         RtcConfig = {};
 
     settings.WebRTC.RtcConfig = RtcConfig;
+
+    if(typeof SocketPort != 'undefined')
+        settings.SocketPort = SocketPort;
+
+    if(typeof SocketPath != 'undefined')
+        settings.SocketPath = SocketPath;
 
     if(typeof AudioTagId == 'undefined')
         settings.WebRTC.AudioTag = null;

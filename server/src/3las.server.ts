@@ -29,11 +29,13 @@ const FFmpeg_command: string = (() => {
 		return "ffmpeg";
 })();
 
+var test: boolean = false;
 class StreamClient {
     private readonly Server: StreamServer;
     private readonly Socket: ws;
     private readonly BinaryOptions: object;
 
+    private RtcSource: any;
     private RtcPeer: RTCPeerConnection;
     private RtcTrack: any;
     
@@ -103,6 +105,12 @@ class StreamClient {
             delete this.RtcPeer;
             this.RtcPeer = null;
         }
+        
+        if(this.RtcSource){
+            this.RtcSource.close();
+            delete this.RtcSource;
+            this.RtcSource = null;
+        }
     }
 
     public SendBinary (buffer: Buffer) {
@@ -123,10 +131,13 @@ class StreamClient {
         this.Socket.send(text);
     }
 
-    public async StartRtc(rtcSource: any): Promise<void> {
+    public async StartRtc(): Promise<void> {
+        this.RtcSource = new wrtc.nonstandard.RTCAudioSource();
+
         this.RtcPeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
 
-        this.RtcTrack = rtcSource.createTrack()
+        this.RtcTrack = this.RtcSource.createTrack();
+
         this.RtcPeer.addTrack(this.RtcTrack);
         
         this.RtcPeer.onicecandidate = this.OnIceCandidate.bind(this);
@@ -139,6 +150,12 @@ class StreamClient {
             "type": "offer",
             "data": offer
         }),);
+    }
+
+    public InsertRtcData(data: any) {
+        if(!this.RtcSource)
+            return;
+        this.RtcSource.onData(data);
     }
 
     private OnIceCandidate(e: any) {
@@ -159,9 +176,9 @@ class StreamServer {
 
     private readonly FallbackProvider: Record<"wav"|"mp3", AFallbackProvider>;
     private readonly Clients: Set<StreamClient>;
+    private readonly RtcClients: Set<StreamClient>;
     private readonly FallbackClients: Record<"wav"|"mp3", Set<StreamClient>>;
     private readonly StdIn: ReadStream;
-    private readonly RtcSource: any;
     
     private SamplesPosition: number; 
     private Samples: Int16Array;
@@ -174,6 +191,7 @@ class StreamServer {
         this.SampleRate = sampleRate;
 
         this.Clients = new Set<StreamClient>();
+        this.RtcClients = new Set<StreamClient>();
         this.FallbackClients = {
             "wav": new Set<StreamClient>(),
             "mp3": new Set<StreamClient>()
@@ -190,7 +208,6 @@ class StreamServer {
         }
 
         this.StdIn = process.stdin;
-        this.RtcSource = new wrtc.nonstandard.RTCAudioSource();
 
         this.SamplesCount = this.SampleRate / 100;
         this.Samples = new Int16Array(this.Channels * this.SamplesCount);
@@ -232,7 +249,9 @@ class StreamServer {
                     "numberOfFrames" : this.SamplesCount,
                 };
 
-                this.RtcSource.onData(data);
+                this.RtcClients.forEach((function each(client: StreamClient) {
+                    client.InsertRtcData(data);
+                }).bind(this))
 
                 this.Samples = new Int16Array(this.Channels * this.SamplesCount);
                 this.SamplesPosition = 0;
@@ -260,12 +279,14 @@ class StreamServer {
     }
         
     public SetWebRtc(client: StreamClient) {
-        client.StartRtc(this.RtcSource);
+        this.RtcClients.add(client);
+        client.StartRtc();
     }
 
     public DestroyClient(client: StreamClient) : void {
         this.FallbackClients["mp3"].delete(client);
         this.FallbackClients["wav"].delete(client);
+        this.RtcClients.delete(client);
         this.Clients.delete(client);
         client.Destroy();
     }

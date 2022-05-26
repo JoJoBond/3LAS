@@ -18,6 +18,10 @@ function Init(_ev) {
     if (typeof RtcConfig == 'undefined')
         RtcConfig = {};
     settings.WebRTC.RtcConfig = RtcConfig;
+    if (typeof SocketPort != 'undefined')
+        settings.SocketPort = SocketPort;
+    if (typeof SocketPath != 'undefined')
+        settings.SocketPath = SocketPath;
     if (typeof AudioTagId == 'undefined')
         settings.WebRTC.AudioTag = null;
     else

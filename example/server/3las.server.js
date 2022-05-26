@@ -43,6 +43,7 @@ const FFmpeg_command = (() => {
     else if (process.platform === 'linux')
         return "ffmpeg";
 })();
+var test = false;
 class StreamClient {
     constructor(server, socket) {
         this.Server = server;
@@ -97,6 +98,11 @@ class StreamClient {
             delete this.RtcPeer;
             this.RtcPeer = null;
         }
+        if (this.RtcSource) {
+            this.RtcSource.close();
+            delete this.RtcSource;
+            this.RtcSource = null;
+        }
     }
     SendBinary(buffer) {
         if (this.Socket.readyState != ws.OPEN) {
@@ -112,10 +118,11 @@ class StreamClient {
         }
         this.Socket.send(text);
     }
-    StartRtc(rtcSource) {
+    StartRtc() {
         return __awaiter(this, void 0, void 0, function* () {
+            this.RtcSource = new wrtc.nonstandard.RTCAudioSource();
             this.RtcPeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
-            this.RtcTrack = rtcSource.createTrack();
+            this.RtcTrack = this.RtcSource.createTrack();
             this.RtcPeer.addTrack(this.RtcTrack);
             this.RtcPeer.onicecandidate = this.OnIceCandidate.bind(this);
             let offer = yield this.RtcPeer.createOffer();
@@ -125,6 +132,11 @@ class StreamClient {
                 "data": offer
             }));
         });
+    }
+    InsertRtcData(data) {
+        if (!this.RtcSource)
+            return;
+        this.RtcSource.onData(data);
     }
     OnIceCandidate(e) {
         if (e.candidate) {
@@ -141,6 +153,7 @@ class StreamServer {
         this.Channels = channels;
         this.SampleRate = sampleRate;
         this.Clients = new Set();
+        this.RtcClients = new Set();
         this.FallbackClients = {
             "wav": new Set(),
             "mp3": new Set()
@@ -153,7 +166,6 @@ class StreamServer {
             this.FallbackProvider["wav"] = AFallbackProvider.Create(this, "wav");
         }
         this.StdIn = process.stdin;
-        this.RtcSource = new wrtc.nonstandard.RTCAudioSource();
         this.SamplesCount = this.SampleRate / 100;
         this.Samples = new Int16Array(this.Channels * this.SamplesCount);
         this.SamplesPosition = 0;
@@ -185,7 +197,9 @@ class StreamServer {
                     "channelCount": this.Channels,
                     "numberOfFrames": this.SamplesCount,
                 };
-                this.RtcSource.onData(data);
+                this.RtcClients.forEach((function each(client) {
+                    client.InsertRtcData(data);
+                }).bind(this));
                 this.Samples = new Int16Array(this.Channels * this.SamplesCount);
                 this.SamplesPosition = 0;
             }
@@ -206,11 +220,13 @@ class StreamServer {
         this.FallbackProvider[format].PrimeClient(client);
     }
     SetWebRtc(client) {
-        client.StartRtc(this.RtcSource);
+        this.RtcClients.add(client);
+        client.StartRtc();
     }
     DestroyClient(client) {
         this.FallbackClients["mp3"].delete(client);
         this.FallbackClients["wav"].delete(client);
+        this.RtcClients.delete(client);
         this.Clients.delete(client);
         client.Destroy();
     }
