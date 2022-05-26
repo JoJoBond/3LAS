@@ -68,7 +68,6 @@ class RtcProvider {
     }
     OnTrack(event) {
         this.RtcDistributeTrack = event.track;
-        console.log(event.track);
     }
     OnIceCandidate_Distribute(e) {
         if (!e.candidate)
@@ -139,8 +138,10 @@ class StreamClient {
         }
         catch (ex) {
         }
-        if (this.RtcTrack && this.RtcPeer)
-            this.RtcPeer.removeTrack(this.RtcTrack);
+        if (this.RtcSender && this.RtcPeer)
+            this.RtcPeer.removeTrack(this.RtcSender);
+        if (this.RtcSender)
+            this.RtcSender = null;
         if (this.RtcTrack)
             this.RtcTrack = null;
         if (this.RtcPeer) {
@@ -167,7 +168,8 @@ class StreamClient {
         return __awaiter(this, void 0, void 0, function* () {
             this.RtcPeer = new wrtc.RTCPeerConnection(Settings.RtcConfig);
             this.RtcTrack = track;
-            this.RtcPeer.addTrack(this.RtcTrack);
+            this.RtcSender = this.RtcPeer.addTrack(this.RtcTrack);
+            this.RtcPeer.onconnectionstatechange = this.OnConnectionStateChange.bind(this);
             this.RtcPeer.onicecandidate = this.OnIceCandidate.bind(this);
             let offer = yield this.RtcPeer.createOffer();
             yield this.RtcPeer.setLocalDescription(new wrtc.RTCSessionDescription(offer));
@@ -176,6 +178,13 @@ class StreamClient {
                 "data": offer
             }));
         });
+    }
+    OnConnectionStateChange(e) {
+        if (!this.RtcPeer)
+            return;
+        let state = this.RtcPeer.connectionState;
+        if (state != "new" && state != "connecting" && state != "connected")
+            this.OnError(null);
     }
     OnIceCandidate(e) {
         if (e.candidate) {

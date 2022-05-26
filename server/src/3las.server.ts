@@ -75,7 +75,6 @@ class RtcProvider {
 
     private OnTrack(event: RTCTrackEvent): void {
         this.RtcDistributeTrack = event.track;
-        console.log(event.track);
     }
 
     private OnIceCandidate_Distribute(e: any): void {
@@ -109,7 +108,8 @@ class StreamClient {
     private readonly BinaryOptions: object;
 
     private RtcPeer: RTCPeerConnection;
-    private RtcTrack: any;
+    private RtcTrack: MediaStreamTrack;
+    private RtcSender: RTCRtpSender;
 
     constructor(server: StreamServer, socket: ws) {
         this.Server = server;
@@ -167,8 +167,11 @@ class StreamClient {
         catch (ex) {
         }
 
-        if (this.RtcTrack && this.RtcPeer)
-            this.RtcPeer.removeTrack(this.RtcTrack);
+        if (this.RtcSender && this.RtcPeer)
+            this.RtcPeer.removeTrack(this.RtcSender);
+
+        if (this.RtcSender)
+            this.RtcSender = null;
 
         if (this.RtcTrack)
             this.RtcTrack = null;
@@ -203,7 +206,9 @@ class StreamClient {
 
         this.RtcTrack = track;
 
-        this.RtcPeer.addTrack(this.RtcTrack);
+        this.RtcSender = this.RtcPeer.addTrack(this.RtcTrack);
+
+        this.RtcPeer.onconnectionstatechange = this.OnConnectionStateChange.bind(this);
 
         this.RtcPeer.onicecandidate = this.OnIceCandidate.bind(this);
 
@@ -215,6 +220,15 @@ class StreamClient {
             "type": "offer",
             "data": offer
         }));
+    }
+
+    private OnConnectionStateChange(e: Event): void {
+        if (!this.RtcPeer)
+            return;
+
+        let state: RTCPeerConnectionState = this.RtcPeer.connectionState;
+        if (state != "new" && state != "connecting" && state != "connected")
+            this.OnError(null);
     }
 
     private OnIceCandidate(e: any): void {
