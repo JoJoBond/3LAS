@@ -55,6 +55,9 @@ var _3LAS = /** @class */ (function () {
     });
     _3LAS.prototype.Start = function () {
         this.ConnectivityFlag = false;
+        // This is stupid, but required for iOS/iPadOS... thanks Apple :(
+        if (this.Settings && this.Settings.WebRTC && this.Settings.WebRTC.AudioTag)
+            this.Settings.WebRTC.AudioTag.play();
         try {
             this.WebSocket = new WebSocketClient(this.Logger, 'ws://' + this.Settings.SocketHost + ':' + this.Settings.SocketPort.toString() + this.Settings.SocketPath, this.OnSocketError.bind(this), this.OnSocketConnect.bind(this), this.OnSocketDataReady.bind(this), this.OnSocketDisconnect.bind(this));
             this.Logger.Log("Init of WebSocketClient succeeded");

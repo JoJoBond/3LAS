@@ -78,6 +78,11 @@ class _3LAS {
 
     public Start(): void {
         this.ConnectivityFlag = false;
+
+        // This is stupid, but required for iOS/iPadOS... thanks Apple :(
+        if(this.Settings && this.Settings.WebRTC && this.Settings.WebRTC.AudioTag)
+            this.Settings.WebRTC.AudioTag.play();
+        
         try {
             this.WebSocket = new WebSocketClient(
                 this.Logger,
