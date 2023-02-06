@@ -88,12 +88,14 @@ function OnMuteButtonClick(_ev) {
     OldVolume = Stream.Volume;
     Stream.Volume = 0.0;
     UpdateVolumeBar(0);
+    document.getElementById("audioTag").muted = trye;
 }
 function OnUnmuteButtonClick(_ev) {
     document.getElementById("mutebutton").style.visibility = "visible";
     document.getElementById("unmutebutton").style.visibility = "hidden";
     Stream.Volume = OldVolume;
     UpdateVolumeBar(OldVolume * document.getElementById("volumebar").getBoundingClientRect().width);
+    document.getElementById("audioTag").muted = false;
 }
 function OnPlayButtonClick(_ev) {
     try {
