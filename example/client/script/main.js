@@ -88,7 +88,7 @@ function OnMuteButtonClick(_ev) {
     OldVolume = Stream.Volume;
     Stream.Volume = 0.0;
     UpdateVolumeBar(0);
-    document.getElementById("audioTag").muted = trye;
+    document.getElementById("audioTag").muted = true;
 }
 function OnUnmuteButtonClick(_ev) {
     document.getElementById("mutebutton").style.visibility = "visible";
