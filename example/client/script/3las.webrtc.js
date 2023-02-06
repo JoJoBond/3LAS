@@ -68,14 +68,30 @@ var WebRTC = /** @class */ (function () {
     }
     Object.defineProperty(WebRTC.prototype, "Volume", {
         get: function () {
+            if (!this.CanChangeVolume()) {
+                if (this.AudioTag.muted == true)
+                    return 0.0;
+                else
+                    return 1.0;
+            }
             return this.AudioTag.volume;
         },
         set: function (value) {
+            if (!this.CanChangeVolume()) {
+                if (value <= 0.0)
+                    this.AudioTag.muted = true;
+                else
+                    this.AudioTag.muted = false;
+                return;
+            }
             this.AudioTag.volume = value;
         },
         enumerable: false,
         configurable: true
     });
+    WebRTC.prototype.CanChangeVolume = function () {
+        return !(isIOS || isIPadOS);
+    };
     WebRTC.prototype.Init = function (webSocket) {
         this.WebSocket = webSocket;
         this.WebSocket.Send(JSON.stringify({

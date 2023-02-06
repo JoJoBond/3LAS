@@ -53,6 +53,12 @@ var _3LAS = /** @class */ (function () {
         enumerable: false,
         configurable: true
     });
+    _3LAS.prototype.CanChangeVolume = function () {
+        if (this.WebRTC)
+            return this.WebRTC.CanChangeVolume();
+        else
+            return true;
+    };
     _3LAS.prototype.Start = function () {
         this.ConnectivityFlag = false;
         // This is stupid, but required for iOS/iPadOS... thanks Apple :(

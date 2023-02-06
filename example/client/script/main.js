@@ -39,8 +39,15 @@ function Init(_ev) {
     document.getElementById("mutebutton").onclick = OnMuteButtonClick;
     document.getElementById("playbutton").onclick = OnPlayButtonClick;
     var volumebar = document.getElementById("volumebar");
-    volumebar.addEventListener("touchstart", OnVolumeBarDragBegin);
-    volumebar.addEventListener("mousedown", OnVolumeBarDragBegin);
+    if (Stream.CanChangeVolume()) {
+        volumebar.addEventListener("touchstart", OnVolumeBarDragBegin);
+        volumebar.addEventListener("mousedown", OnVolumeBarDragBegin);
+    }
+    else {
+        volumebar.style.display = "none";
+        DefaultVolume = 1.0;
+        OldVolume = 1.0;
+    }
     document.getElementById("viewcontainer").style.display = "block";
 }
 function OnLogWindowButtonClick(_ev) {

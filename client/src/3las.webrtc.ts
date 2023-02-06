@@ -50,11 +50,30 @@ class WebRTC {
     }
 
     public set Volume(value: number) {
+        if(!this.CanChangeVolume()) {
+            if(value <= 0.0)
+                this.AudioTag.muted = true;
+            else
+                this.AudioTag.muted = false;
+
+            return;
+        }
+        
         this.AudioTag.volume = value;
     }
 
     public get Volume(): number {
+        if(!this.CanChangeVolume()) {
+            if(this.AudioTag.muted == true)
+                return 0.0;
+            else
+                return 1.0
+        }
         return this.AudioTag.volume;
+    }
+
+    public CanChangeVolume(): boolean {
+        return !(isIOS || isIPadOS);
     }
 
     public Init(webSocket: WebSocketClient): void {

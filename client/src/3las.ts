@@ -76,6 +76,13 @@ class _3LAS {
             return this.Fallback.Volume;
     }
 
+    public CanChangeVolume(): boolean {
+        if (this.WebRTC)
+            return this.WebRTC.CanChangeVolume();
+        else
+            return true;
+    }
+
     public Start(): void {
         this.ConnectivityFlag = false;
 

@@ -56,8 +56,15 @@ function Init(_ev: Event): void {
     document.getElementById("playbutton").onclick = OnPlayButtonClick;
 
     let volumebar: HTMLElement = document.getElementById("volumebar");
-    volumebar.addEventListener("touchstart", OnVolumeBarDragBegin);
-    volumebar.addEventListener("mousedown", OnVolumeBarDragBegin);
+    if (Stream.CanChangeVolume()) {
+        volumebar.addEventListener("touchstart", OnVolumeBarDragBegin);
+        volumebar.addEventListener("mousedown", OnVolumeBarDragBegin);
+    }
+    else {
+        volumebar.style.display = "none";
+        DefaultVolume = 1.0;
+        OldVolume = 1.0;
+    }
 
     document.getElementById("viewcontainer").style.display = "block";
 }
