@@ -115,6 +115,7 @@ function OnMuteButtonClick(_ev: MouseEvent): void {
     Stream.Volume = 0.0;
 
     UpdateVolumeBar(0);
+    document.getElementById("audioTag").muted = true;
 }
 
 function OnUnmuteButtonClick(_ev: MouseEvent): void {
@@ -124,6 +125,7 @@ function OnUnmuteButtonClick(_ev: MouseEvent): void {
     Stream.Volume = OldVolume;
 
     UpdateVolumeBar(OldVolume * document.getElementById("volumebar").getBoundingClientRect().width);
+    document.getElementById("audioTag").muted = false;
 }
 
 function OnPlayButtonClick(_ev: MouseEvent): void {
