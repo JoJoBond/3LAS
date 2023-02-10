@@ -26,6 +26,7 @@ class _3LAS {
 
     private readonly WebRTC: WebRTC;
     private readonly Fallback: Fallback;
+    private readonly WakeLock: WakeLock;
 
     constructor(logger: Logging, settings: _3LAS_Settings) {
         this.Logger = logger;
@@ -60,6 +61,10 @@ class _3LAS {
             this.Logger.Log('3LAS: Browser does not support either media handling methods.');
             throw new Error();
         }
+
+        if (isAndroid) {
+            this.WakeLock = new WakeLock(this.Logger);
+        }
     }
 
     public set Volume(value: number) {
@@ -87,9 +92,13 @@ class _3LAS {
         this.ConnectivityFlag = false;
 
         // This is stupid, but required for iOS/iPadOS... thanks Apple :(
-        if(this.Settings && this.Settings.WebRTC && this.Settings.WebRTC.AudioTag)
+        if (this.Settings && this.Settings.WebRTC && this.Settings.WebRTC.AudioTag)
             this.Settings.WebRTC.AudioTag.play();
-        
+
+        // This is stupid, but required for Android.... thanks Google :(
+        if (this.WakeLock)
+            this.WakeLock.Begin();
+
         try {
             this.WebSocket = new WebSocketClient(
                 this.Logger,

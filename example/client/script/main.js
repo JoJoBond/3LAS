@@ -48,6 +48,15 @@ function Init(_ev) {
         DefaultVolume = 1.0;
         OldVolume = 1.0;
     }
+    if (isAndroid) {
+        var lightbutton = document.getElementById("lightbutton");
+        lightbutton.style.display = "block";
+        lightbutton.addEventListener("touchstart", OnLightButtonClick);
+        lightbutton.addEventListener("mousedown", OnLightButtonClick);
+        var lightoff = document.getElementById("lightoff");
+        lightoff.addEventListener("touchstart", OnLightOffClick, true);
+        lightoff.addEventListener("mousedown", OnLightOffClick, true);
+    }
     document.getElementById("viewcontainer").style.display = "block";
 }
 function OnLogWindowButtonClick(_ev) {
@@ -160,5 +169,36 @@ function OnVolumeBarDragMove(ev) {
     var ratio = left / rect.width;
     UpdateVolumeBar(left);
     Stream.Volume = ratio;
+}
+var lastTapTime = -1;
+function OnLightButtonClick(ev) {
+    var now = (new Date()).getTime();
+    if (document.getElementById("lightoff").style.display == "none") {
+        lastTapTime = -1;
+        document.getElementById("lightoff").style.display = "block";
+        document.getElementById("lightbutton").style.filter = "grayscale(100%)";
+        document.getElementById("lightbutton").style.opacity = "0.25";
+    }
+    else if (lastTapTime > 0) {
+        var timesince = now - lastTapTime;
+        if (timesince > 0 && timesince < 600) {
+            lastTapTime = -1;
+            document.getElementById("lightoff").style.display = "none";
+            document.getElementById("lightbutton").style.filter = "none";
+            document.getElementById("lightbutton").style.opacity = "1.0";
+        }
+        else {
+            lastTapTime = now;
+        }
+    }
+    else {
+        lastTapTime = now;
+    }
+}
+function OnLightOffClick(ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    ev.cancelBubble = true;
+    return true;
 }
 //# sourceMappingURL=main.js.map

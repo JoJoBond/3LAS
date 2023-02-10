@@ -36,6 +36,9 @@ var _3LAS = /** @class */ (function () {
             this.Logger.Log('3LAS: Browser does not support either media handling methods.');
             throw new Error();
         }
+        if (isAndroid) {
+            this.WakeLock = new WakeLock(this.Logger);
+        }
     }
     Object.defineProperty(_3LAS.prototype, "Volume", {
         get: function () {
@@ -64,6 +67,9 @@ var _3LAS = /** @class */ (function () {
         // This is stupid, but required for iOS/iPadOS... thanks Apple :(
         if (this.Settings && this.Settings.WebRTC && this.Settings.WebRTC.AudioTag)
             this.Settings.WebRTC.AudioTag.play();
+        // This is stupid, but required for Android.... thanks Google :(
+        if (this.WakeLock)
+            this.WakeLock.Begin();
         try {
             this.WebSocket = new WebSocketClient(this.Logger, 'ws://' + this.Settings.SocketHost + ':' + this.Settings.SocketPort.toString() + this.Settings.SocketPath, this.OnSocketError.bind(this), this.OnSocketConnect.bind(this), this.OnSocketDataReady.bind(this), this.OnSocketDisconnect.bind(this));
             this.Logger.Log("Init of WebSocketClient succeeded");

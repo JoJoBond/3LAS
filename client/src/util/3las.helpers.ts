@@ -2,7 +2,6 @@
     Helpers is part of 3LAS (Low Latency Live Audio Streaming)
     https://github.com/JoJoBond/3LAS
 */
-
 var isAndroid: boolean;
 var isIOS: boolean;
 var isIPadOS: boolean;
@@ -81,3 +80,62 @@ var OSName: string;
     else
         OSName = "Unknown";
 };
+
+class WakeLock {
+    private static readonly VideoWebm: string = 'GkXfo0AgQoaBAUL3gQFC8oEEQvOBCEKCQAR3ZWJtQoeBAkKFgQIYU4BnQI0VSalmQCgq17FAAw9CQE2AQAZ3aGFtbXlXQUAGd2hhbW15RIlACECPQAAAAAAAFlSua0AxrkAu14EBY8WBAZyBACK1nEADdW5khkAFVl9WUDglhohAA1ZQOIOBAeBABrCBCLqBCB9DtnVAIueBAKNAHIEAAIAwAQCdASoIAAgAAUAmJaQAA3AA/vz0AAA=';
+    private static readonly VideoMp4: string = 'AAAAHGZ0eXBpc29tAAACAGlzb21pc28ybXA0MQAAAAhmcmVlAAAAG21kYXQAAAGzABAHAAABthADAowdbb9/AAAC6W1vb3YAAABsbXZoZAAAAAB8JbCAfCWwgAAAA+gAAAAAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAIVdHJhawAAAFx0a2hkAAAAD3wlsIB8JbCAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAIAAAACAAAAAABsW1kaWEAAAAgbWRoZAAAAAB8JbCAfCWwgAAAA+gAAAAAVcQAAAAAAC1oZGxyAAAAAAAAAAB2aWRlAAAAAAAAAAAAAAAAVmlkZW9IYW5kbGVyAAAAAVxtaW5mAAAAFHZtaGQAAAABAAAAAAAAAAAAAAAkZGluZgAAABxkcmVmAAAAAAAAAAEAAAAMdXJsIAAAAAEAAAEcc3RibAAAALhzdHNkAAAAAAAAAAEAAACobXA0dgAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAIAAgASAAAAEgAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABj//wAAAFJlc2RzAAAAAANEAAEABDwgEQAAAAADDUAAAAAABS0AAAGwAQAAAbWJEwAAAQAAAAEgAMSNiB9FAEQBFGMAAAGyTGF2YzUyLjg3LjQGAQIAAAAYc3R0cwAAAAAAAAABAAAAAQAAAAAAAAAcc3RzYwAAAAAAAAABAAAAAQAAAAEAAAABAAAAFHN0c3oAAAAAAAAAEwAAAAEAAAAUc3RjbwAAAAAAAAABAAAALAAAAGB1ZHRhAAAAWG1ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAAK2lsc3QAAAAjqXRvbwAAABtkYXRhAAAAAQAAAABMYXZmNTIuNzguMw==';
+
+    private LockElement: any;
+    private readonly Logger: Logging;
+
+    constructor(logger: Logging) {
+        this.Logger = logger;
+
+        this.Logger.Log("Preparing WakeLock");
+
+        if (typeof (<any>navigator).wakeLock == "undefined") {
+            this.Logger.Log("Using video loop method.");
+            let video = document.createElement('video');
+            video.setAttribute('loop', '');
+            video.setAttribute('style', 'position: fixed; opacity: 0.1; pointer-events: none;');
+
+            WakeLock.AddSourceToVideo(video, 'webm', 'data:video/webm;base64,' + WakeLock.VideoWebm);
+            WakeLock.AddSourceToVideo(video, 'mp4', 'data:video/mp4;base64,' + WakeLock.VideoMp4);
+
+            document.body.appendChild(video);
+
+            this.LockElement = video;
+        }
+        else {
+            this.Logger.Log("Using WakeLock API.");
+            this.LockElement = null;
+        }
+    }
+
+    public Begin(): void {
+        if (this.LockElement == null) {
+            try {
+                (<Promise<any>>(<any>navigator).wakeLock.request("screen")).then((obj: any) => {
+                    this.Logger.Log("WakeLock request successful. Lock acquired.");
+                    this.LockElement = obj;
+                }, () => {
+                    this.Logger.Log("WakeLock request failed.");
+                });
+            }
+            catch (err) {
+                this.Logger.Log("WakeLock request failed.");
+            }
+        }
+        else {
+            this.Logger.Log("WakeLock video loop started.");
+            (<HTMLVideoElement>this.LockElement).play();
+        }
+    }
+
+    private static AddSourceToVideo(element: HTMLVideoElement, type: string, dataURI: string): void {
+        var source = document.createElement('source');
+        source.src = dataURI;
+        source.type = 'video/' + type;
+        element.appendChild(source);
+    }
+}

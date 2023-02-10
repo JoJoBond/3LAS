@@ -66,6 +66,18 @@ function Init(_ev: Event): void {
         OldVolume = 1.0;
     }
 
+    if (isAndroid) {
+        let lightbutton: HTMLElement = document.getElementById("lightbutton");
+        lightbutton.style.display = "block";
+
+        lightbutton.addEventListener("touchstart", OnLightButtonClick);
+        lightbutton.addEventListener("mousedown", OnLightButtonClick);
+
+        let lightoff: HTMLElement = document.getElementById("lightoff");
+        lightoff.addEventListener("touchstart", OnLightOffClick, true);
+        lightoff.addEventListener("mousedown", OnLightOffClick, true);
+    }
+
     document.getElementById("viewcontainer").style.display = "block";
 }
 
@@ -211,4 +223,38 @@ function OnVolumeBarDragMove(ev: MouseEvent | TouchEvent): void {
     UpdateVolumeBar(left);
 
     Stream.Volume = ratio;
+}
+
+var lastTapTime: number = -1;
+
+function OnLightButtonClick(ev: MouseEvent | TouchEvent): void {
+    let now = (new Date()).getTime()
+    if (document.getElementById("lightoff").style.display == "none") {
+        lastTapTime = -1;
+        document.getElementById("lightoff").style.display = "block";
+        document.getElementById("lightbutton").style.filter = "grayscale(100%)";
+        document.getElementById("lightbutton").style.opacity = "0.25";
+    } else if (lastTapTime > 0) {
+        let timesince = now - lastTapTime;
+
+        if (timesince > 0 && timesince < 600) {
+            lastTapTime = -1;
+            document.getElementById("lightoff").style.display = "none";
+            document.getElementById("lightbutton").style.filter = "none";
+            document.getElementById("lightbutton").style.opacity = "1.0";
+        }
+        else {
+            lastTapTime = now;
+        }
+    }
+    else {
+        lastTapTime = now;
+    }
+}
+
+function OnLightOffClick(ev: MouseEvent | TouchEvent): boolean {
+    ev.preventDefault();
+    ev.stopPropagation();
+    ev.cancelBubble = true;
+    return true;
 }

@@ -38,3 +38,32 @@ div#chromesuggestion a,span
 	text-decoration: none;
 	color: #888888;
 }
+
+div#lightoff
+{
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	left: 0pt;
+	top: 0pt;
+	z-index: 9999999;
+	background: black;
+	opacity: 0.9;
+	cursor: not-allowed;
+}
+
+div#lightbutton
+{
+	background-image: url(../img/light.svg);
+	-webkit-background-size: 100% 100%;
+	   -moz-background-size: 100% 100%;
+	     -o-background-size: 100% 100%;
+		    background-size: 100% 100%;
+	position: absolute;
+	width: 50pt;
+	height: 50pt;
+	right: 0;
+	top: 0;
+	z-index: 99999999;
+	cursor: pointer;
+}
