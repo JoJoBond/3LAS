@@ -173,27 +173,18 @@ function OnVolumeBarDragMove(ev) {
 var lastTapTime = -1;
 function OnLightButtonClick(ev) {
     var now = (new Date()).getTime();
-    if (document.getElementById("lightoff").style.display == "none") {
-        lastTapTime = -1;
+    var timesince = now - lastTapTime;
+    if (timesince > 50 && document.getElementById("lightoff").style.display == "none") {
         document.getElementById("lightoff").style.display = "block";
         document.getElementById("lightbutton").style.filter = "grayscale(100%)";
         document.getElementById("lightbutton").style.opacity = "0.25";
     }
-    else if (lastTapTime > 0) {
-        var timesince = now - lastTapTime;
-        if (timesince > 0 && timesince < 600) {
-            lastTapTime = -1;
-            document.getElementById("lightoff").style.display = "none";
-            document.getElementById("lightbutton").style.filter = "none";
-            document.getElementById("lightbutton").style.opacity = "1.0";
-        }
-        else {
-            lastTapTime = now;
-        }
+    else if (lastTapTime > 0 && timesince > 50 && timesince < 600) {
+        document.getElementById("lightoff").style.display = "none";
+        document.getElementById("lightbutton").style.filter = "none";
+        document.getElementById("lightbutton").style.opacity = "1.0";
     }
-    else {
-        lastTapTime = now;
-    }
+    lastTapTime = now;
 }
 function OnLightOffClick(ev) {
     ev.preventDefault();
