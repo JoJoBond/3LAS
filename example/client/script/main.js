@@ -38,16 +38,6 @@ function Init(_ev) {
     document.getElementById("unmutebutton").onclick = OnUnmuteButtonClick;
     document.getElementById("mutebutton").onclick = OnMuteButtonClick;
     document.getElementById("playbutton").onclick = OnPlayButtonClick;
-    var volumebar = document.getElementById("volumebar");
-    if (Stream.CanChangeVolume()) {
-        volumebar.addEventListener("touchstart", OnVolumeBarDragBegin);
-        volumebar.addEventListener("mousedown", OnVolumeBarDragBegin);
-    }
-    else {
-        volumebar.style.display = "none";
-        DefaultVolume = 1.0;
-        OldVolume = 1.0;
-    }
     if (isAndroid) {
         var lightbutton = document.getElementById("lightbutton");
         lightbutton.style.display = "block";
@@ -65,11 +55,21 @@ function OnLogWindowButtonClick(_ev) {
 }
 function OnConnectivityCallback(isConnected) {
     if (isConnected) {
+        var volumebar = document.getElementById("volumebar");
+        if (Stream.CanChangeVolume()) {
+            volumebar.addEventListener("touchstart", OnVolumeBarDragBegin);
+            volumebar.addEventListener("mousedown", OnVolumeBarDragBegin);
+            volumebar.style.visibility = "visible";
+        }
+        else {
+            volumebar.style.display = "none";
+            DefaultVolume = 1.0;
+            OldVolume = 1.0;
+        }
         if (DefaultVolume >= 0) {
             Stream.Volume = DefaultVolume;
             DefaultVolume = -1;
         }
-        document.getElementById("volumebar").style.visibility = "visible";
         document.getElementById("controlbar").style.visibility = "visible";
         document.getElementById("playbutton").style.visibility = "hidden";
         document.getElementById("mutebutton").style.visibility = "visible";
@@ -174,12 +174,14 @@ var lastTapTime = -1;
 function OnLightButtonClick(ev) {
     var now = (new Date()).getTime();
     var timesince = now - lastTapTime;
-    if (timesince > 50 && document.getElementById("lightoff").style.display == "none") {
+    if (timesince > 150 && document.getElementById("lightoff").style.display == "none") {
         document.getElementById("lightoff").style.display = "block";
         document.getElementById("lightbutton").style.filter = "grayscale(100%)";
         document.getElementById("lightbutton").style.opacity = "0.25";
+        lastTapTime = -1;
+        return;
     }
-    else if (lastTapTime > 0 && timesince > 50 && timesince < 600) {
+    else if (lastTapTime > 0 && timesince > 150 && timesince < 600) {
         document.getElementById("lightoff").style.display = "none";
         document.getElementById("lightbutton").style.filter = "none";
         document.getElementById("lightbutton").style.opacity = "1.0";
