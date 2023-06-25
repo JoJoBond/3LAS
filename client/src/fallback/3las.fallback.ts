@@ -5,6 +5,7 @@
 
 import { Logging } from '../util/3las.logging';
 import { WebSocketClient } from '../util/3las.websocketclient';
+import { CreateAudioFormatReader } from './formats/3las.createformatreader';
 import { AudioFormatReader, IAudioFormatReader } from './3las.formatreader';
 import { LiveAudioPlayer } from './3las.liveaudioplayer';
 import { OSName, BrowserName } from '../util/3las.helpers';
@@ -104,7 +105,7 @@ export class Fallback {
         }
 
         try {
-            this.FormatReader = AudioFormatReader.Create(
+            this.FormatReader = CreateAudioFormatReader(
                 this.SelectedFormatMime,
                 this.Audio,
                 this.Logger,
