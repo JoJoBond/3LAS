@@ -248,5 +248,4 @@ function OnLightOffClick(ev: MouseEvent | TouchEvent): boolean {
 
 // -----------------------------
 
-
 window.addEventListener('load', Init, false);
