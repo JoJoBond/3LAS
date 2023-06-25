@@ -1,4 +1,10 @@
-class _3LAS_Settings {
+import { WebRTC, WebRTC_Settings } from "./3las.webrtc";
+import { Fallback, Fallback_Settings } from "./fallback/3las.fallback";
+import { Logging } from "./util/3las.logging";
+import { WebSocketClient } from "./util/3las.websocketclient";
+import { MyWakeLock, isAndroid } from "./util/3las.helpers";
+
+export class _3LAS_Settings {
     public SocketHost: string;
     public SocketPort: number;
     public SocketPath: string;
@@ -14,7 +20,7 @@ class _3LAS_Settings {
     }
 }
 
-class _3LAS {
+export class _3LAS {
     public ActivityCallback: () => void;
     public ConnectivityCallback: (status: boolean) => void;
 
@@ -26,7 +32,7 @@ class _3LAS {
 
     private readonly WebRTC: WebRTC;
     private readonly Fallback: Fallback;
-    private readonly WakeLock: WakeLock;
+    private readonly WakeLock: MyWakeLock;
 
     constructor(logger: Logging, settings: _3LAS_Settings) {
         this.Logger = logger;
@@ -63,7 +69,7 @@ class _3LAS {
         }
 
         if (isAndroid) {
-            this.WakeLock = new WakeLock(this.Logger);
+            this.WakeLock = new MyWakeLock(this.Logger);
         }
     }
 

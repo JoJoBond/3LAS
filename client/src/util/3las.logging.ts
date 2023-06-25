@@ -3,7 +3,7 @@
     https://github.com/JoJoBond/3LAS
 */
 
-class Logging {
+export class Logging {
     private readonly ParentElement: HTMLElement;
     private readonly ChildElementType: string;
 

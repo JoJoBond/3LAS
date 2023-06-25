@@ -3,7 +3,9 @@
     https://github.com/JoJoBond/3LAS
 */
 
-class LiveAudioPlayer {
+import { Logging } from '../util/3las.logging';
+
+export class LiveAudioPlayer {
     // Crystal oscillator have a variance of about +/- 20ppm
     // So worst case would be a difference of 40ppm between two oscillators.
     private static readonly SpeedCorrectionFactor: number = 40 / 1.0e6;

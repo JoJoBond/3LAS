@@ -3,7 +3,10 @@
     https://github.com/JoJoBond/3LAS
 */
 
-class MPEGFrameInfo {
+import { Logging } from '../../util/3las.logging';
+import { AudioFormatReader, IAudioFormatReader } from '../3las.formatreader';
+
+export class MPEGFrameInfo {
     public readonly Data: Uint8Array;
     public readonly SampleCount: number;
     public readonly SampleRate: number;
@@ -15,7 +18,7 @@ class MPEGFrameInfo {
     }
 }
 
-class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatReader {
+export class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatReader {
     // MPEG versions - use [version]
     private static readonly MPEG_versions: Array<number> = new Array(25, 0, 2, 1);
 

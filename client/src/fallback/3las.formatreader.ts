@@ -3,7 +3,12 @@
     https://github.com/JoJoBond/3LAS
 */
 
-interface IAudioFormatReader {
+import { Logging } from '../util/3las.logging';
+import { isAndroid } from '../util/3las.helpers';
+import { AudioFormatReader_MPEG } from './formats/3las.formatreader.mpeg';
+import { AudioFormatReader_WAV } from './formats/3las.formatreader.wav';
+
+export interface IAudioFormatReader {
     PushData(data: Uint8Array): void;
     SamplesAvailable(): boolean;
     PopSamples(): AudioBuffer;
@@ -12,7 +17,7 @@ interface IAudioFormatReader {
     Poke(): void;
 }
 
-abstract class AudioFormatReader implements IAudioFormatReader {
+export abstract class AudioFormatReader implements IAudioFormatReader {
     protected readonly Audio: AudioContext;
     protected readonly Logger: Logging;
     protected readonly ErrorCallback: () => void;

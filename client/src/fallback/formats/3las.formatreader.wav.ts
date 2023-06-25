@@ -3,7 +3,10 @@
     https://github.com/JoJoBond/3LAS
 */
 
-class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatReader {
+import { Logging } from '../../util/3las.logging';
+import { AudioFormatReader, IAudioFormatReader } from '../3las.formatreader';
+
+export class AudioFormatReader_WAV extends AudioFormatReader implements IAudioFormatReader {
     private readonly BatchDuration: number;
     private readonly ExtraEdgeDuration: number;
 

@@ -1,13 +1,6 @@
-/// <reference path="../../../client/src/3las.ts" />
-/// <reference path="../../../client/src/3las.webrtc.ts" />
-/// <reference path="../../../client/src/fallback/3las.fallback.ts" />
-/// <reference path="../../../client/src/fallback/3las.formatreader.ts" />
-/// <reference path="../../../client/src/fallback/formats/3las.formatreader.mpeg.ts" />
-/// <reference path="../../../client/src/fallback/formats/3las.formatreader.wav.ts" />
-/// <reference path="../../../client/src/fallback/3las.liveaudioplayer.ts" />
-/// <reference path="../../../client/src/util/3las.helpers.ts" />
-/// <reference path="../../../client/src/util/3las.logging.ts" />
-/// <reference path="../../../client/src/util/3las.websocketclient.ts" />
+import { _3LAS, _3LAS_Settings } from "./3las";
+import { Logging } from "./util/3las.logging";
+import { isAndroid } from "./util/3las.helpers";
 
 var Stream: _3LAS;
 var DefaultVolume: number = 0.5;
@@ -252,3 +245,8 @@ function OnLightOffClick(ev: MouseEvent | TouchEvent): boolean {
     ev.cancelBubble = true;
     return true;
 }
+
+// -----------------------------
+
+
+window.addEventListener('load', Init, false);

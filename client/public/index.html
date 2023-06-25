@@ -9,50 +9,10 @@
 		<meta name="format-detection" content="telephone=no">
 
 		<title>3LAS (Low Latency Live Audio Streaming)</title>
-		
-		<script src="script/util/3las.helpers.js"></script>
-		<script src="script/util/3las.logging.js"></script>
 
         <link rel="stylesheet" href="style/main.css">
         <link rel="stylesheet" href="style/log_window.css">
 		<link rel="stylesheet" href="style/player_controls.css">
-		
-		<script src="script/fallback/3las.liveaudioplayer.js"></script>
-		<script src="script/fallback/3las.formatreader.js"></script>
-		<script src="script/fallback/formats/3las.formatreader.mpeg.js"></script>
-		<script src="script/fallback/formats/3las.formatreader.wav.js"></script>
-		<script src="script/util/3las.websocketclient.js"></script>
-		<script src="script/fallback/3las.fallback.js"></script>
-		<script src="script/3las.webrtc.js"></script>
-		<script src="script/3las.js"></script>
-		<script src="script/main.js"></script>
-		<script>
-			var RtcConfig = {
-				/*
-				iceServers: [
-					{
-						urls: "turns:turnserver.example.org",
-					},
-					{
-						urls: "stun:stunserver.example.org"
-					}
-				]
-				*/
-			};
-
-			var AudioTagId = "audioTag";
-
-			// Bind init to page load see code in main.ts/main.js
-			window.addEventListener('load', Init, false);
-			document.ontouchmove  = function(e){ 
-				e.preventDefault(); 
-			}
-			
-			function hideChromeBanner ()
-			{
-				document.getElementById("chromesuggestion").style.display = "none";
-			}
-		</script> 
 	</head>
 	<body style="background:#000000;">
 		<audio id="audioTag"></audio>
@@ -104,5 +64,34 @@
 			<p>Please try another browser.</p>
 		</div>
 		<div id="lightoff" style="display: none;"></div>
+		
+		<script src="bundle.js" type="text/javascript"></script>
+
+		<script>
+			var RtcConfig = {
+				/*
+				iceServers: [
+					{
+						urls: "turns:turnserver.example.org",
+					},
+					{
+						urls: "stun:stunserver.example.org"
+					}
+				]
+				*/
+			};
+
+			var AudioTagId = "audioTag";
+
+			// Bind init to page load see code in main.ts/main.js
+			document.ontouchmove  = function(e){ 
+				e.preventDefault(); 
+			}
+			
+			function hideChromeBanner ()
+			{
+				document.getElementById("chromesuggestion").style.display = "none";
+			}
+		</script> 
 	</body>
 </html>

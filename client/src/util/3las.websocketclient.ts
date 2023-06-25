@@ -3,10 +3,13 @@
     https://github.com/JoJoBond/3LAS
 */
 
+import { Logging } from './3las.logging';
+
+
 declare class webkitWebSocket extends WebSocket { }
 declare class mozWebSocket extends WebSocket { }
 
-class WebSocketClient {
+export class WebSocketClient {
     private readonly Logger: Logging;
     private readonly Uri: string;
     private readonly ErrorCallback: (message: string) => void;

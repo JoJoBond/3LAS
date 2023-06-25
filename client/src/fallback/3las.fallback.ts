@@ -3,10 +3,16 @@
     https://github.com/JoJoBond/3LAS
 */
 
+import { Logging } from '../util/3las.logging';
+import { WebSocketClient } from '../util/3las.websocketclient';
+import { AudioFormatReader, IAudioFormatReader } from './3las.formatreader';
+import { LiveAudioPlayer } from './3las.liveaudioplayer';
+import { OSName, BrowserName } from '../util/3las.helpers';
+
 declare class webkitAudioContext extends AudioContext { }
 declare class mozAudioContext extends AudioContext { }
 
-class Fallback_Settings {
+export class Fallback_Settings {
     public Formats: Array<{ Mime: string, Name: string }>;
     public MaxVolume: number;
     public InitialBufferLength: number;
@@ -23,7 +29,7 @@ class Fallback_Settings {
     }
 }
 
-class Fallback {
+export class Fallback {
     private readonly Audio: AudioContext;
 
     private readonly Logger: Logging;
@@ -64,7 +70,7 @@ class Fallback {
             (BrowserName == "IE" ? "Internet Explorer" : (BrowserName == "NativeChrome" ? "Chrome legacy" : (BrowserName == "Unknown" ? "Unknown Browser" : BrowserName))));
 
         this.SelectedFormatMime = "";
-        this.SelectedFormatName = "";
+        this.SelectedFormatName = "";AudioFormatReader
 
         for (let i: number = 0; i < this.Settings.Formats.length; i++) {
             if (!AudioFormatReader.CanDecodeTypes([this.Settings.Formats[i].Mime]))

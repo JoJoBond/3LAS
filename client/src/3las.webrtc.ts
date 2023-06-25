@@ -3,16 +3,19 @@
     https://github.com/JoJoBond/3LAS
 */
 
+import { Logging } from './util/3las.logging';
+import { WebSocketClient } from './util/3las.websocketclient';
+import { isIOS, isIPadOS } from './util/3las.helpers';
 
 declare class mozRTCPeerConnection extends RTCPeerConnection { }
 declare class webkitRTCPeerConnection extends RTCPeerConnection { }
 
-class WebRTC_Settings {
+export class WebRTC_Settings {
     public AudioTag: HTMLAudioElement;
     public RtcConfig: RTCConfiguration;
 }
 
-class WebRTC {
+export class WebRTC {
     private readonly Logger: Logging;
     private readonly AudioTag: HTMLAudioElement;
 
@@ -82,7 +85,7 @@ class WebRTC {
             "type": "webrtc",
             "data": null
         }));
-        this.ActivityTimer = setInterval(this.OnActivityTimerTick.bind(this), 1000);
+        this.ActivityTimer = window.setInterval(this.OnActivityTimerTick.bind(this), 1000);
     }
 
     private OnActivityTimerTick(): void {
