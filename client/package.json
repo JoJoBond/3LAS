@@ -5,7 +5,7 @@
   "main": "src/main.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack-cli --mode production",
+    "build": "rm -rf dist/ && webpack-cli --mode production && cp -vr public/* dist/",
     "serve": "webpack-dev-server --mode development"
   },
   "author": "",
