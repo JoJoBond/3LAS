@@ -1,13 +1,1 @@
-﻿################################################################################
-# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
-################################################################################
-
-/.vs
-
-/server/src/node_modules
-
-/example/server/**
-!/example/server/**.js
-!/example/server/test.bat
-!/example/server/test.sh
-!/example/server/settings.json
+node_modules

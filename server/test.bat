@@ -8,4 +8,4 @@ REM SET INPUT_SETTINGS=-re -f lavfi -i "aevalsrc='sin(1000*t*2*PI*t)':s=48000:d=
 SET CODEC_SETTINGS=-af aresample=resampler=soxr -acodec pcm_s16le -ar 48000 -ac 1
 SET OUTPUT_SETTINGS=-f s16le -fflags +nobuffer+flush_packets -packetsize 384 -flush_packets 1 -bufsize 960
 
-ffmpeg %FLAGS% %INPUT_SETTINGS% %CODEC_SETTINGS% %OUTPUT_SETTINGS% pipe:1 | node 3las.server.js -port 8080 -samplerate 48000 -channels 1
+ffmpeg %FLAGS% %INPUT_SETTINGS% %CODEC_SETTINGS% %OUTPUT_SETTINGS% pipe:1 | ./node_modules/.bin/ts-node src/3las.server.ts -port 8080 -samplerate 48000 -channels 1
