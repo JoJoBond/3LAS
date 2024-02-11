@@ -152,14 +152,18 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
 
             let bufferLength: number = 0;
             let expectedTotalPlayTime: number = 0;
+            let firstGranulePlayTime: number = 0;
+            let lastGranulePlayTime: number = 0;
 
-            expectedTotalPlayTime += this.Frames[0].SampleCount / this.Frames[0].SampleRate / 2.0; // Only half of data is usable due to overlap
+            firstGranulePlayTime = this.Frames[0].SampleCount / this.Frames[0].SampleRate / 2.0;  // Only half of data is usable due to overlap
+            expectedTotalPlayTime += firstGranulePlayTime;
             bufferLength += this.Frames[0].Data.length;
             for (let i: number = 1; i < this.Frames.length - 1; i++) {
                 expectedTotalPlayTime += this.Frames[i].SampleCount / this.Frames[i].SampleRate;
                 bufferLength += this.Frames[i].Data.length;
             }
-            expectedTotalPlayTime += this.Frames[this.Frames.length - 1].SampleCount / this.Frames[this.Frames.length - 1].SampleRate / 2.0; // Only half of data is usable due to overlap
+            lastGranulePlayTime = this.Frames[this.Frames.length - 1].SampleCount / this.Frames[this.Frames.length - 1].SampleRate / 2.0; // Only half of data is usable due to overlap
+            expectedTotalPlayTime += lastGranulePlayTime;
             bufferLength += this.Frames[this.Frames.length - 1].Data.length;
 
             // If needed, add some space for the ID3v2 tag
@@ -200,7 +204,9 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
                 (function (decodedData: AudioBuffer) {
                     let _id: number = id;
                     let _expectedTotalPlayTime: number = expectedTotalPlayTime;
-                    this._OnDecodeSuccess(decodedData, _id, _expectedTotalPlayTime);
+                    let _firstGranulePlayTime: number = firstGranulePlayTime;
+                    let _lastGranulePlayTime: number = lastGranulePlayTime;
+                    this._OnDecodeSuccess(decodedData, _id, _expectedTotalPlayTime, _firstGranulePlayTime, _lastGranulePlayTime);
                 }).bind(this),
                 this._OnDecodeError.bind(this)
             );
@@ -292,11 +298,12 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
         return new MPEGFrameInfo(new Uint8Array(frameArray), this.FrameSamples, this.FrameSampleRate);
     }
 
-    private readonly _OnDecodeSuccess: (decodedData: AudioBuffer, id: number, expectedTotalPlayTime: number) => void;
+    private readonly _OnDecodeSuccess: (decodedData: AudioBuffer, id: number, expectedTotalPlayTime: number, firstGranulePlayTime: number, lastGranulePlayTime: number) => void;
     // Is called if the decoding of the window succeeded
-    private OnDecodeSuccess(decodedData: AudioBuffer, id: number, expectedTotalPlayTime: number): void {
+    private OnDecodeSuccess(decodedData: AudioBuffer, id: number, expectedTotalPlayTime: number, firstGranulePlayTime: number, lastGranulePlayTime: number): void {
         let extractSampleCount: number;
         let extractSampleOffset: number;
+        const delta: number = 0.001;
 
         // Check if we got the expected number of samples
         if (expectedTotalPlayTime > decodedData.duration) {
@@ -321,7 +328,35 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
                 this.TimeBudget -= (budgetSamples / decodedData.sampleRate);
             }
 
-            extractSampleOffset = Math.floor((decodedData.length - extractSampleCount) / 2);
+            let diff: number = decodedData.duration - expectedTotalPlayTime;
+
+            if((diff - firstGranulePlayTime - lastGranulePlayTime) >= -delta) {
+                // Both first and last granule are present. Cut out middle section.
+                extractSampleOffset = Math.floor((decodedData.length - extractSampleCount) / 2);
+            }
+            if(Math.abs(firstGranulePlayTime - lastGranulePlayTime) <= delta) {
+                // First and last granule are equal. We need to make an educated guess which one is present.
+                if(isIOS || isIPadOS) {
+                    // I don't know why, but Apple does things differently.
+                    extractSampleOffset = Math.floor((decodedData.length - extractSampleCount) / 2);
+                }
+                else {
+                    // Assume first granule is present.
+                    extractSampleOffset = decodedData.length - extractSampleCount;
+                }
+            }
+            else if (Math.abs(diff - firstGranulePlayTime) <= delta) {
+                // First granule is present.
+                extractSampleOffset = decodedData.length - extractSampleCount;
+            }
+            else if (Math.abs(diff - lastGranulePlayTime) <= delta) {
+                // Last granule is present.
+                extractSampleOffset = 0;
+            }
+            else {
+                // The difference is not equal to neither the first, the last nor the sum of both granule. So we just use the middle.
+                extractSampleOffset = Math.floor((decodedData.length - extractSampleCount) / 2);
+            }
         }
         else {
             // We got the expected number of samples, no adaption needed
