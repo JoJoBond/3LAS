@@ -229,16 +229,16 @@ var AudioFormatReader_MPEG = /** @class */ (function (_super) {
                     extractSampleOffset = Math.floor((decodedData.length - extractSampleCount) / 2);
                 }
                 else {
-                    // Assume first granule is present.
+                    // Assume last granule is present.
                     extractSampleOffset = decodedData.length - extractSampleCount;
                 }
             }
             else if (Math.abs(diff - firstGranulePlayTime) <= delta) {
-                // First granule is present.
+                // Last granule is present.
                 extractSampleOffset = decodedData.length - extractSampleCount;
             }
             else if (Math.abs(diff - lastGranulePlayTime) <= delta) {
-                // Last granule is present.
+                // First granule is present.
                 extractSampleOffset = 0;
             }
             else {
