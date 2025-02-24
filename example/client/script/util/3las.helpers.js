@@ -33,7 +33,7 @@ var OSName;
     isWindows = (ua.match('windows') ? true : false);
     isLinux = (ua.match('android') ? false : (ua.match('linux') ? true : false));
     isBSD = (ua.match('bsd') ? true : false);
-    isMacOSX = !isIOS && !isIPadOS && (ua.match('mac osx') ? true : false);
+    isMacOSX = !isIOS && !isIPadOS && (ua.match('mac osx') ? true : (ua.match('mac os x') ? true : false));
     isInternetExplorer = (ua.match('msie') ? true : false);
     isEdge = (ua.match('edg') ? true : false);
     isSafari = (ua.match(/(chromium|chrome|crios)/g) ? false : (ua.match('safari') ? true : false));

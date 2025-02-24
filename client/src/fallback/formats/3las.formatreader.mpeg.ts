@@ -336,7 +336,7 @@ class AudioFormatReader_MPEG extends AudioFormatReader implements IAudioFormatRe
             }
             if(Math.abs(firstGranulePlayTime - lastGranulePlayTime) <= delta) {
                 // First and last granule are equal. We need to make an educated guess which one is present.
-                if(isIOS || isIPadOS) {
+                if(isIOS || isIPadOS || isMacOSX) {
                     // I don't know why, but Apple does things differently.
                     extractSampleOffset = Math.floor((decodedData.length - extractSampleCount) / 2);
                 }
